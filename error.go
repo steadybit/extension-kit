@@ -3,7 +3,7 @@
 
 package extension_kit
 
-import "github.com/steadybit/extension-kit/util"
+import "github.com/steadybit/extension-kit/extutil"
 
 type ExtensionError struct {
 	// A human-readable explanation specific to this occurrence of the problem.
@@ -22,7 +22,7 @@ type ExtensionError struct {
 func ToError(title string, err error) ExtensionError {
 	var response ExtensionError
 	if err != nil {
-		response = ExtensionError{Title: title, Detail: util.Ptr(err.Error())}
+		response = ExtensionError{Title: title, Detail: extutil.Ptr(err.Error())}
 	} else {
 		response = ExtensionError{Title: title}
 	}
