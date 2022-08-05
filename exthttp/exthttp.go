@@ -56,12 +56,16 @@ func WriteError(w http.ResponseWriter, err extension_kit.ExtensionError) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 	encodeErr := json.NewEncoder(w).Encode(err)
-	log.Err(encodeErr).Msgf("Failed to write ExtensionError as response body")
+	if encodeErr != nil {
+		log.Err(encodeErr).Msgf("Failed to write ExtensionError as response body")
+	}
 }
 
 func WriteBody(w http.ResponseWriter, response any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	encodeErr := json.NewEncoder(w).Encode(response)
-	log.Err(encodeErr).Msgf("Failed to response body")
+	if encodeErr != nil {
+		log.Err(encodeErr).Msgf("Failed to response body")
+	}
 }
