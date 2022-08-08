@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2022 Steadybit GmbH
 
+// Package exthttp supports setup of HTTP servers to implement the *Kit contracts. To keep the resulting binary small
+// the net/http server is used.
 package exthttp
 
 import (
@@ -12,10 +14,12 @@ import (
 	"runtime/debug"
 )
 
+// RegisterHttpHandler registers a handler for the given path. Also adds panic recovery and request logging around the handler.
 func RegisterHttpHandler(path string, handler func(w http.ResponseWriter, r *http.Request, body []byte)) {
 	http.Handle(path, PanicRecovery(LogRequest(handler)))
 }
 
+// GetterAsHandler turns a getter function into a handler function. Typically used in combination with the RegisterHttpHandler function.
 func GetterAsHandler[T any](handler func() T) func(w http.ResponseWriter, r *http.Request, body []byte) {
 	return func(w http.ResponseWriter, r *http.Request, body []byte) {
 		WriteBody(w, handler())
@@ -52,6 +56,7 @@ func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) 
 	}
 }
 
+// WriteError writes the error as the HTTP response body with status code 500.
 func WriteError(w http.ResponseWriter, err extension_kit.ExtensionError) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
@@ -61,6 +66,7 @@ func WriteError(w http.ResponseWriter, err extension_kit.ExtensionError) {
 	}
 }
 
+// WriteBody writes the given value as the HTTP response body as JSON with status code 200.
 func WriteBody(w http.ResponseWriter, response any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
