@@ -1,3 +1,5 @@
+<img src="./logo.png" width="300" align="right" alt="ExtensionKit logo depicting a wrench within a rounded rectangle on the background">
+
 # ExtensionKit
 
 Through kits like AttackKit and DiscoveryKit, Steadybit can be extended with new capabilities. Such *Kit usages are called extensions. ExtensionKit 
