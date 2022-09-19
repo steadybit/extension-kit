@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.0
+
+ - the active log level can now be configured through the `STEADYBIT_LOG_LEVEL` environment variable.
+
 ## v1.1.0
 
  - add utilities to work with child processes across incoming HTTP calls, e.g., for ActionKit users
