@@ -51,12 +51,12 @@ func (w *LoggingHttpResponseWriter) Header() http.Header {
 
 func (w *LoggingHttpResponseWriter) Write(bytes []byte) (int, error) {
 	log.Debug().Msgf("Req %s response body: %s", bytes)
-	return w.Write(bytes)
+	return w.delegate.Write(bytes)
 }
 
 func (w *LoggingHttpResponseWriter) WriteHeader(statusCode int) {
 	log.Debug().Msgf("Req %s response status code: %d", statusCode)
-	w.WriteHeader(statusCode)
+	w.delegate.WriteHeader(statusCode)
 }
 
 func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) http.HandlerFunc {

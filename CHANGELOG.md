@@ -1,6 +1,10 @@
 # Changelog
 
-## v.1.3.0
+## v1.3.1
+
+ -  stack overflow error in logging HTTP writer
+
+## v1.3.0
 
  - `exthttp` will now log request and response bodies on debug level.
 
