@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.3.2
+
+ - debug messages in `exthttp` are missing the request ID.
+
 ## v1.3.1
 
  -  stack overflow error in logging HTTP writer
