@@ -1,5 +1,9 @@
 # Changelog
 
+## v.1.3.0
+
+ - `exthttp` will now log request and response bodies on debug level.
+
 ## v1.2.0
 
  - the active log level can now be configured through the `STEADYBIT_LOG_LEVEL` environment variable.

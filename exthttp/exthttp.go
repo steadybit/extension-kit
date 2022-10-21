@@ -7,8 +7,10 @@ package exthttp
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/steadybit/extension-kit"
+	"github.com/steadybit/extension-kit/extutil"
 	"io/ioutil"
 	"net/http"
 	"runtime/debug"
@@ -38,6 +40,25 @@ func PanicRecovery(next func(w http.ResponseWriter, r *http.Request)) http.Handl
 	}
 }
 
+type LoggingHttpResponseWriter struct {
+	delegate http.ResponseWriter
+	reqId    string
+}
+
+func (w *LoggingHttpResponseWriter) Header() http.Header {
+	return w.delegate.Header()
+}
+
+func (w *LoggingHttpResponseWriter) Write(bytes []byte) (int, error) {
+	log.Debug().Msgf("Req %s response body: %s", bytes)
+	return w.Write(bytes)
+}
+
+func (w *LoggingHttpResponseWriter) WriteHeader(statusCode int) {
+	log.Debug().Msgf("Req %s response status code: %d", statusCode)
+	w.WriteHeader(statusCode)
+}
+
 func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, bodyReadErr := ioutil.ReadAll(r.Body)
@@ -46,13 +67,15 @@ func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) 
 			return
 		}
 
-		if len(body) > 0 {
-			log.Info().Msgf("%s %s with body %s", r.Method, r.URL, body)
-		} else {
-			log.Info().Msgf("%s %s", r.Method, r.URL)
-		}
+		reqId := uuid.New().String()
 
-		next(w, r, body)
+		log.Info().Msgf("Req %s: %s %s with %d byte body", reqId, r.Method, r.URL, len(body))
+		log.Debug().Msgf("Req %s body: %s", reqId, body)
+
+		next(extutil.Ptr(LoggingHttpResponseWriter{
+			delegate: w,
+			reqId:    reqId,
+		}), r, body)
 	}
 }
 
