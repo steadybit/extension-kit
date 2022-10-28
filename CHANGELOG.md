@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.0
+
+ - adds conversion helper to `extconversion`. This is helpful to encode and decode ActionKit's state.
+
 ## v1.3.2
 
  - debug messages in `exthttp` are missing the request ID.
