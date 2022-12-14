@@ -16,7 +16,11 @@ import (
 // a human-readable output format, the time format and the global log level.
 func InitZeroLog() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	logFormat := os.Getenv("STEADYBIT_LOG_FORMAT")
+	if strings.ToLower(logFormat) != "json" {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	}
 
 	logLevel := os.Getenv("STEADYBIT_LOG_LEVEL")
 	if len(logLevel) == 0 {
