@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+ - Added a new utility function `Listen` to `exthttp` package to listen on a port and serve HTTP requests. The function also takes care of establishing an HTTPS server with mutual TLS when instructed to through environment variables.
+
 ## v1.5.0
 
  - Support for the `STEADYBIT_LOG_FORMAT` env variable. When set to `json`, extensions will log JSON lines to stderr.
