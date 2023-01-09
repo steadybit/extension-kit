@@ -1,3 +1,5 @@
+# Contributing
+
 ## Contributor License Agreement (CLA)
 
 In order to accept your pull request, we need you to submit a CLA. You only need to do this once. If you are submitting a pull request for the first time, just submit a Pull Request and our CLA Bot will give you instructions on how to sign the CLA before merging your Pull Request.
@@ -8,3 +10,15 @@ If contributing on behalf of your company, your company must sign a [Corporate C
 
 If for any reason, your first contribution is in a PR created by other contributor, please just add a comment to the PR
 with the following text to agree our CLA: "I have read the CLA Document and I hereby sign the CLA".
+
+## Generating New Test Certificates
+
+```
+openssl req -newkey rsa:2048 \
+  -new -nodes -x509 \
+  -days 3650 \
+  -out cert.pem \
+  -keyout key.pem \
+  -addext "subjectAltName = DNS:localhost" \
+  -subj "/C=US/ST=California/L=Mountain View/O=Your Organization/OU=Your Unit/CN=localhost"
+```

@@ -52,14 +52,19 @@ type ListenOpts struct {
 }
 
 func Listen(opts ListenOpts) {
-	_, err := listen(opts)
+	_, start, err := listen(opts)
 
+	if err != nil {
+		log.Fatal().Err(err).Msgf("Failed to start extension server")
+	}
+
+	err = start()
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Failed to start extension server")
 	}
 }
 
-func listen(opts ListenOpts) (*http.Server, error) {
+func listen(opts ListenOpts) (*http.Server, func() error, error) {
 	spec := ListenSpecification{}
 	spec.parseConfigurationFromEnvironment()
 	err := spec.validateSpecification()
@@ -74,9 +79,9 @@ func listen(opts ListenOpts) (*http.Server, error) {
 
 	log.Info().Msgf("Starting extension server on port %d (TLS: %v)", port, spec.isTlsEnabled())
 	if spec.isTlsEnabled() {
-		return startHttpsServer(port, spec)
+		return prepareHttpsServer(port, spec)
 	} else {
-		return startHttpServer(port)
+		return prepareHttpServer(port)
 	}
 }
 
@@ -89,25 +94,22 @@ func (fw *forwardToZeroLogWriter) Write(p []byte) (n int, err error) {
 	return len([]byte(trimmed)), nil
 }
 
-func startHttpServer(port int) (*http.Server, error) {
+func prepareHttpServer(port int) (*http.Server, func() error, error) {
 	server := &http.Server{
 		Addr:     fmt.Sprintf(":%d", port),
 		ErrorLog: stdLog.New(&forwardToZeroLogWriter{}, "", 0),
 	}
-	err := server.ListenAndServe()
-	if err != nil {
-		return nil, err
-	}
-	return server, nil
+
+	return server, server.ListenAndServe, nil
 }
 
-func startHttpsServer(port int, spec ListenSpecification) (*http.Server, error) {
+func prepareHttpsServer(port int, spec ListenSpecification) (*http.Server, func() error, error) {
 	tlsConfig := tls.Config{}
 
 	if len(spec.TlsClientCas) > 0 {
 		clientCAs, err := loadCertPool(spec.TlsClientCas)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load TLS client CA certificates: %w", err)
+			return nil, nil, fmt.Errorf("failed to load TLS client CA certificates: %w", err)
 		}
 
 		tlsConfig.ClientCAs = clientCAs
@@ -119,11 +121,9 @@ func startHttpsServer(port int, spec ListenSpecification) (*http.Server, error) 
 		TLSConfig: &tlsConfig,
 		ErrorLog:  stdLog.New(&forwardToZeroLogWriter{}, "", 0),
 	}
-	err := server.ListenAndServeTLS(spec.TlsServerCert, spec.TlsServerKey)
-	if err != nil {
-		return nil, err
-	}
-	return server, nil
+	return server, func() error {
+		return server.ListenAndServeTLS(spec.TlsServerCert, spec.TlsServerKey)
+	}, nil
 }
 
 func loadCertPool(filePaths []string) (*x509.CertPool, error) {
