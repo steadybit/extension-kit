@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.6.0
 
  - Added a new utility function `Listen` to `exthttp` package to listen on a port and serve HTTP requests. The function also takes care of establishing an HTTPS server with mutual TLS when instructed to through environment variables.
 
