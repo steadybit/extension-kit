@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestValidateSpecificationSuccessHttp(t *testing.T) {
@@ -65,6 +66,7 @@ func TestStartHttpServer(t *testing.T) {
 
 	go start()
 	defer server.Close()
+	time.Sleep(1 * time.Second)
 
 	resp, err := http.Get(fmt.Sprintf("http://localhost:%d", port))
 
@@ -84,9 +86,9 @@ func TestStartHttpsServer(t *testing.T) {
 
 	go start()
 	defer server.Close()
+	time.Sleep(1 * time.Second)
 
 	_, err = http.Get(fmt.Sprintf("https://localhost:%d", port))
-
 	require.ErrorContains(t, err, "certificate")
 }
 
@@ -131,6 +133,7 @@ func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *t
 
 	go start()
 	defer server.Close()
+	time.Sleep(1 * time.Second)
 
 	_, err = http.Get(fmt.Sprintf("https://localhost:%d", port))
 
@@ -150,6 +153,7 @@ func TestStartHttpsServerWithMutualTlsMustSuccessfullyAllowMutualTlsConnections(
 
 	go start()
 	defer server.Close()
+	time.Sleep(1 * time.Second)
 
 	cert, err := tls.LoadX509KeyPair("testdata/cert.pem", "testdata/key.pem")
 	require.NoError(t, err)
