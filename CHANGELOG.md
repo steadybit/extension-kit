@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.7.0
+
+ - Support `extbuild.ExtensionName`, `extbuild.Version` and `extbuild.Revision` to retrieve build information. You have to fill these fields at build time using:
+  
+      ```
+      go build -ldflags="-X 'github.com/steadybit/extension-kit/extbuild.ExtensionName=extension-prometheus' -X 'github.com/steadybit/extension-kit/extbuild.Version=v1.0.0' -X 'github.com/steadybit/extension-kit/extbuild.Revision=e3f9616ba2e838d0d3a4472cd0d0cb2e39a06e8f'"
+      ```
+ - Extensions can now call `extbuild.PrintBuildInformation()` within their `main()` function to generate useful debugging information.
+- Extensions can now call `extbuild.GetSemverVersionStringOrUnknown()` to get a fitting version number for action and type definitions.
+
 ## v1.6.0
 
  - Added a new utility function `Listen` to `exthttp` package to listen on a port and serve HTTP requests. The function also takes care of establishing an HTTPS server with mutual TLS when instructed to through environment variables.
