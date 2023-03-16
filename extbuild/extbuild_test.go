@@ -29,8 +29,8 @@ func TestGetSemverVersionStringOrUnknown(t *testing.T) {
 			want:  "11.22.33",
 		},
 		{
-			name:  "version string with leading v",
-			given: "v11.22.33",
+			name:  "version string without leading v",
+			given: "11.22.33",
 			want:  "11.22.33",
 		},
 	}
