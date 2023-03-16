@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.7.1
+
+ - Trim leading `v` character in `extbuild.GetSemverVersionStringOrUnknown()` for platform compatibility.
+
 ## v1.7.0
 
  - Support `extbuild.ExtensionName`, `extbuild.Version` and `extbuild.Revision` to retrieve build information. You have to fill these fields at build time using:

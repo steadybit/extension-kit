@@ -6,9 +6,10 @@ package extbuild
 import (
 	"github.com/rs/zerolog/log"
 	"regexp"
+	"strings"
 )
 
-var semverPattern = regexp.MustCompile("^v\\d+\\.\\d+\\.\\d+$")
+var semverPattern = regexp.MustCompile("^v?\\d+\\.\\d+\\.\\d+$")
 
 var ExtensionName string = "unknown"
 var Version string = "unknown"
@@ -22,7 +23,7 @@ func PrintBuildInformation() {
 // GetSemverVersionStringOrUnknown returns a version string that you can use within action and type definitions.
 func GetSemverVersionStringOrUnknown() string {
 	if semverPattern.MatchString(Version) {
-		return Version
+		return strings.TrimPrefix(Version, "v")
 	}
 	return "unknown"
 }
