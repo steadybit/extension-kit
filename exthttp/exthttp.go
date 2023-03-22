@@ -69,7 +69,12 @@ func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) 
 
 		reqId := uuid.New().String()
 
-		log.Info().Msgf("Req %s: %s %s with %d byte body", reqId, r.Method, r.URL, len(body))
+		bodyLength := len(body)
+		if bodyLength == 0 {
+			log.Info().Msgf("Req %s: %s %s", reqId, r.Method, r.URL)
+		} else {
+			log.Info().Msgf("Req %s: %s %s with %d byte body", reqId, r.Method, r.URL, bodyLength)
+		}
 		log.Debug().Msgf("Req %s body: %s", reqId, body)
 
 		next(extutil.Ptr(LoggingHttpResponseWriter{
