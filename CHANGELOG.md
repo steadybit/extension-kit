@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.7.2
+
+ - Don't print "0 bytes" when there is no request body
+
 ## v1.7.1
 
  - Trim leading `v` character in `extbuild.GetSemverVersionStringOrUnknown()` for platform compatibility.
