@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2022 Steadybit GmbH
+// SPDX-FileCopyrightText: 2023 Steadybit GmbH
 
 // Package exthttp supports setup of HTTP servers to implement the *Kit contracts. To keep the resulting binary small
 // the net/http server is used.
@@ -88,6 +88,7 @@ func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) 
 func WriteError(w http.ResponseWriter, err extension_kit.ExtensionError) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
+	log.Error().Msgf("%s, details: %v", err.Title, err.Detail)
 	encodeErr := json.NewEncoder(w).Encode(err)
 	if encodeErr != nil {
 		log.Err(encodeErr).Msgf("Failed to write ExtensionError as response body")
