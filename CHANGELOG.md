@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.7.3
+ - Always log errors written as http response
+
 ## v1.7.2
 
  - Don't print "0 bytes" when there is no request body
