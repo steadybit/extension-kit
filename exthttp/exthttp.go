@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2023 Steadybit GmbH
+/*
+ * Copyright 2023 steadybit GmbH. All rights reserved.
+ */
 
 // Package exthttp supports setup of HTTP servers to implement the *Kit contracts. To keep the resulting binary small
 // the net/http server is used.
@@ -11,9 +12,11 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/steadybit/extension-kit"
 	"github.com/steadybit/extension-kit/extutil"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"runtime/debug"
+	"strconv"
+	"time"
 )
 
 // RegisterHttpHandler registers a handler for the given path. Also adds panic recovery and request logging around the handler.
@@ -59,9 +62,27 @@ func (w *LoggingHttpResponseWriter) WriteHeader(statusCode int) {
 	w.delegate.WriteHeader(statusCode)
 }
 
+func RequestTimeoutHeaderAware(next func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		timeout := r.Header.Get("Request-Timeout")
+		if timeout == "" {
+			timeout = r.Header.Get("X-Request-Timeout")
+		}
+		if timeout != "" {
+			timeoutValue, err := strconv.ParseFloat(timeout, 32)
+			if err == nil {
+				log.Trace().Msgf("Using handler timeout %.1fs", timeoutValue)
+				http.TimeoutHandler(http.HandlerFunc(next), time.Duration(timeoutValue*1000)*time.Millisecond, "Request timed out.").ServeHTTP(w, r)
+				return
+			}
+		}
+		next(w, r)
+	}
+}
+
 func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		body, bodyReadErr := ioutil.ReadAll(r.Body)
+		body, bodyReadErr := io.ReadAll(r.Body)
 		if bodyReadErr != nil {
 			http.Error(w, bodyReadErr.Error(), http.StatusBadRequest)
 			return
