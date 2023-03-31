@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2022 Steadybit GmbH
+// SPDX-FileCopyrightText: 2023 Steadybit GmbH
 
 // Package extension_kit provides utilities to handle extension errors.
 package extension_kit
 
-import "github.com/steadybit/extension-kit/extutil"
+import (
+	"github.com/steadybit/extension-kit/extutil"
+)
 
 // ExtensionError is a generalization over ActionKit and DiscoveryKit error types. They are structurally identical
 // and can be used interchangeably.
@@ -20,6 +22,10 @@ type ExtensionError struct {
 
 	// A URI reference that identifies the problem type.
 	Type *string `json:"type,omitempty"`
+}
+
+func (e ExtensionError) Error() string {
+	return e.Title
 }
 
 // ToError converts an error to an ExtensionError.
