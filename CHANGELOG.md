@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.7.4
+ - Let ExtensionError implement the error interface
+ - Set timeout for handlers if Request-Timeout header is set.
+
 ## v1.7.3
  - Always log errors written as http response
 
