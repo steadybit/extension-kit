@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2022 Steadybit GmbH
+/*
+ * Copyright 2023 steadybit GmbH. All rights reserved.
+ */
 
 package extconversion
 
@@ -15,12 +16,10 @@ import (
 // the mapstructure package. It turned out that using the json package is beneficial, as
 // many go internal (time.Time) and external packages (Kubernetes resource types) are compatible
 // with the json package, but not with mapstructure.
-func Convert[FROM any, TO any](from FROM, to *TO) error {
+func Convert(from any, to any) error {
 	bytes, err := json.Marshal(from)
 	if err != nil {
 		return err
 	}
-
-	err = json.Unmarshal(bytes, to)
-	return err
+	return json.Unmarshal(bytes, to)
 }
