@@ -12,14 +12,14 @@ var (
 	isReady = false
 )
 
-// AddLivenessProbe registers a HTTP handler for the liveness probe. The liveness probe reports HTTP 200 as soon as the HTTP server is up and running.
+// AddLivenessProbe registers an HTTP handler for the liveness probe. The liveness probe reports HTTP 200 as soon as the HTTP server is up and running.
 func AddLivenessProbe() {
 	exthttp.RegisterHttpHandler("/health/liveness", func(w http.ResponseWriter, r *http.Request, body []byte) {
 		w.WriteHeader(http.StatusOK)
 	})
 }
 
-// AddReadinessProbe registers a HTTP handler for the readiness probe. The readiness probe reports an error (HTTP 503) until the SetReady function is called with true.
+// AddReadinessProbe registers an HTTP handler for the readiness probe. The readiness probe reports an error (HTTP 503) until the SetReady function is called with true.
 func AddReadinessProbe() {
 	exthttp.RegisterHttpHandler("/health/readiness", func(w http.ResponseWriter, r *http.Request, body []byte) {
 		if isReady {
