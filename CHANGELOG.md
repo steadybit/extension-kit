@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.7.8
+
+- start liveness and readiness probe on different port
+
+## v1.7.7
+
 ## v1.7.6
 
 - add exthttp.LogRequestWithLevel
