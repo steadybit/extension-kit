@@ -4,7 +4,8 @@
 package exthealth
 
 import (
-	"github.com/steadybit/extension-kit/exthttp"
+	"fmt"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"sync/atomic"
 )
@@ -14,27 +15,35 @@ var (
 )
 
 // AddLivenessProbe registers an HTTP handler for the liveness probe. The liveness probe reports HTTP 200 as soon as the HTTP server is up and running.
-func AddLivenessProbe() {
-	exthttp.RegisterHttpHandler("/health/liveness", func(w http.ResponseWriter, r *http.Request, body []byte) {
+func addLivenessProbe(serverMux *http.ServeMux) {
+	serverMux.Handle("/health/liveness", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	})
+	}))
 }
 
 // AddReadinessProbe registers an HTTP handler for the readiness probe. The readiness probe reports an error (HTTP 503) when the SetReady function is called with false. Default readiness state is true.
-func AddReadinessProbe() {
-	exthttp.RegisterHttpHandler("/health/readiness", func(w http.ResponseWriter, r *http.Request, body []byte) {
+func addReadinessProbe(serverMux *http.ServeMux) {
+	serverMux.Handle("/health/readiness", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if atomic.LoadInt32(&isReady) == 1 {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
-	})
+	}))
 }
 
-// AddProbes registers HTTP handlers for the liveness and readiness probes.
-func AddProbes() {
-	AddLivenessProbe()
-	AddReadinessProbe()
+// StartProbes will start liveness and readiness probes.
+func StartProbes(port int) {
+	serverMuxProbes := http.NewServeMux()
+	addLivenessProbe(serverMuxProbes)
+	addReadinessProbe(serverMuxProbes)
+	go func() {
+		log.Info().Msgf("Starting probes server on port %d", port)
+		err := http.ListenAndServe(fmt.Sprintf(":%d", port), serverMuxProbes)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("Failed to start probes server")
+		}
+	}()
 }
 
 // SetReady sets the readiness state of the service. If the service is not ready the readiness probe will report an error.
