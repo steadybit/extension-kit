@@ -2,6 +2,10 @@
 
 ## v1.7.6
 
+- add exthttp.LogRequestWithLevel
+
+## v1.7.6
+
 - default readiness probe is true
 - use atomic variable for readiness switch
 
