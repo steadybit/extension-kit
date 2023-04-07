@@ -114,7 +114,13 @@ func LogRequestWithLevel(next func(w http.ResponseWriter, r *http.Request, body 
 func WriteError(w http.ResponseWriter, err extension_kit.ExtensionError) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
-	log.Error().Msgf("%s, details: %v", err.Title, err.Detail)
+
+	logEvent := log.Error()
+	if err.Detail != nil {
+		logEvent.Str("details", *err.Detail)
+	}
+	logEvent.Msgf(err.Title)
+
 	encodeErr := json.NewEncoder(w).Encode(err)
 	if encodeErr != nil {
 		log.Err(encodeErr).Msgf("Failed to write ExtensionError as response body")
