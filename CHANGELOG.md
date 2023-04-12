@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.7.9
+
+- allow overriding port for probes to be overrinden via STEADYBIT_EXTENSION_HEALTH_PORT
+
 ## v1.7.8
 
 - start liveness and readiness probe on different port
