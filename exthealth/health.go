@@ -58,7 +58,7 @@ func StartProbes(port int) {
 	addLivenessProbe(serverMuxProbes)
 	addReadinessProbe(serverMuxProbes)
 	go func() {
-		log.Info().Msgf("Starting probes server on port %d", healthPort)
+		log.Info().Msgf("Starting probes server on port %d, ready: %t", healthPort, atomic.LoadInt32(&isReady) == 1)
 		err := http.ListenAndServe(fmt.Sprintf(":%d", healthPort), serverMuxProbes)
 		if err != nil {
 			log.Fatal().Err(err).Msgf("Failed to start probes server")
@@ -68,6 +68,7 @@ func StartProbes(port int) {
 
 // SetReady sets the readiness state of the service. If the service is not ready the readiness probe will report an error.
 func SetReady(ready bool) {
+	log.Info().Msgf("Update readiness probe - ready: %t", ready)
 	if ready {
 		atomic.StoreInt32(&isReady, 1)
 	} else {
