@@ -59,6 +59,33 @@ func TestToUInt64(t *testing.T) {
 	}
 }
 
+func TestToUInt(t *testing.T) {
+	type args struct {
+		val interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want uint
+	}{
+		{name: "int 1 should return 1", args: args{val: 1}, want: 1},
+		{name: "int32 1 should return 1", args: args{val: int32(1)}, want: 1},
+		{name: "int64 1 should return 1", args: args{val: int64(1)}, want: 1},
+		{name: "float32 1.0 should return 1", args: args{val: float32(1.0)}, want: 1},
+		{name: "float64 1.0 should return 1", args: args{val: float64(1.0)}, want: 1},
+		{name: "string '1' should return 1", args: args{val: "1"}, want: 1},
+		{name: "string 'anything' should return 0", args: args{val: "anything"}, want: 0},
+		{name: "nil should return 0", args: args{val: nil}, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToUInt(tt.args.val); got != tt.want {
+				t.Errorf("ToUInt64() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestToInt(t *testing.T) {
 	type args struct {
 		val interface{}

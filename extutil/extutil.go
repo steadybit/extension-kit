@@ -121,3 +121,27 @@ func ToKeyValue(config map[string]interface{}, configName string) (map[string]st
 
 	return result, nil
 }
+
+
+func ToUInt(val interface{}) uint {
+	switch val := val.(type) {
+	case int:
+		return uint(val)
+	case int32:
+		return uint(val)
+	case int64:
+		return uint(val)
+	case float32:
+		return uint(val)
+	case float64:
+		return uint(val)
+	case string:
+		i, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return 0
+		}
+		return uint(i)
+	default:
+		return 0
+	}
+}
