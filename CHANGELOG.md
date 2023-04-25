@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.11
+
+- added util methods for type conversions
+
 ## 1.7.10
 
 - logging for readiness state
