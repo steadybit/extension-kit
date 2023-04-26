@@ -82,10 +82,16 @@ func RequestTimeoutHeaderAware(next func(w http.ResponseWriter, r *http.Request)
 }
 
 func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) http.HandlerFunc {
-	return LogRequestWithLevel(next, zerolog.InfoLevel)
+	return LogRequestWithLevelFunc(next, func(r *http.Request) zerolog.Level {
+		if r.Method == "GET" {
+			return zerolog.DebugLevel
+		} else {
+			return zerolog.InfoLevel
+		}
+	})
 }
 
-func LogRequestWithLevel(next func(w http.ResponseWriter, r *http.Request, body []byte), level zerolog.Level) http.HandlerFunc {
+func LogRequestWithLevelFunc(next func(w http.ResponseWriter, r *http.Request, body []byte), level func(r *http.Request) zerolog.Level) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, bodyReadErr := io.ReadAll(r.Body)
 		if bodyReadErr != nil {
@@ -97,9 +103,9 @@ func LogRequestWithLevel(next func(w http.ResponseWriter, r *http.Request, body 
 
 		bodyLength := len(body)
 		if bodyLength == 0 {
-			log.WithLevel(level).Msgf("Req %s: %s %s", reqId, r.Method, r.URL)
+			log.WithLevel(level(r)).Msgf("Req %s: %s %s", reqId, r.Method, r.URL)
 		} else {
-			log.WithLevel(level).Msgf("Req %s: %s %s with %d byte body", reqId, r.Method, r.URL, bodyLength)
+			log.WithLevel(level(r)).Msgf("Req %s: %s %s with %d byte body", reqId, r.Method, r.URL, bodyLength)
 		}
 		log.Debug().Msgf("Req %s body: %s", reqId, body)
 
@@ -108,6 +114,10 @@ func LogRequestWithLevel(next func(w http.ResponseWriter, r *http.Request, body 
 			reqId:    reqId,
 		}), r, body)
 	}
+}
+
+func LogRequestWithLevel(next func(w http.ResponseWriter, r *http.Request, body []byte), level zerolog.Level) http.HandlerFunc {
+	return LogRequestWithLevelFunc(next, func(r *http.Request) zerolog.Level { return level })
 }
 
 // WriteError writes the error as the HTTP response body with status code 500.
