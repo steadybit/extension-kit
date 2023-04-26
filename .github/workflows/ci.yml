@@ -20,10 +20,10 @@ jobs:
         with:
           go-version: '^1.18.0'
 
-      - name: Execute go tests
+      - name: Audit
         run: |
           go mod download
-          go test -coverprofile=coverage.out ./...
+          make audit
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master

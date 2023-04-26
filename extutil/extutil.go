@@ -122,7 +122,6 @@ func ToKeyValue(config map[string]interface{}, configName string) (map[string]st
 	return result, nil
 }
 
-
 func ToUInt(val interface{}) uint {
 	switch val := val.(type) {
 	case int:

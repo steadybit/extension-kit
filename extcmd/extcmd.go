@@ -11,7 +11,6 @@ package extcmd
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"os/exec"
@@ -43,7 +42,7 @@ func NewCmdState(cmd *exec.Cmd) *CmdState {
 func GetCmdState(id string) (*CmdState, error) {
 	state, ok := states[id]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("Failed to find a command state with ID '%s'", id))
+		return nil, fmt.Errorf("failed to find a command state with ID '%s'", id)
 	}
 	return state, nil
 }
