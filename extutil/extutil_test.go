@@ -164,3 +164,8 @@ func TestToKeyValue(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "testValue", value["testKey"])
 }
+
+func TestToToStringArray(t *testing.T) {
+	value := ToStringArray([]any{"key", "testKey", "value", "testValue"})
+	require.Equal(t, []string([]string{"key", "testKey", "value", "testValue"}), value)
+}

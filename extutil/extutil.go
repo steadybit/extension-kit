@@ -144,3 +144,15 @@ func ToUInt(val interface{}) uint {
 		return 0
 	}
 }
+
+func ToStringArray(s interface{}) []string {
+	if s == nil {
+		return nil
+	}
+
+	strings := make([]string, len(s.([]interface{})))
+	for i, v := range s.([]interface{}) {
+		strings[i] = v.(string)
+	}
+	return strings
+}
