@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.12
+
+- added util methods mainly for tests (JsonMangle)
+
 ## 1.7.11
 
 - added util methods for type conversions

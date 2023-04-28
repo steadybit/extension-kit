@@ -7,6 +7,7 @@ package extutil
 
 import (
 	"fmt"
+	"github.com/steadybit/extension-kit/extconversion"
 	"strconv"
 )
 
@@ -155,4 +156,12 @@ func ToStringArray(s interface{}) []string {
 		strings[i] = v.(string)
 	}
 	return strings
+}
+
+func JsonMangle[T any](in T) T {
+	err := extconversion.Convert(in, &in)
+	if err != nil {
+		panic(err)
+	}
+	return in
 }
