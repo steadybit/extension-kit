@@ -1,8 +1,10 @@
 # Changelog
 
-## 1.7.12
+## 1.7.13
 
 - added util methods mainly for tests (JsonMangle)
+
+## 1.7.12
 
 ## 1.7.11
 
