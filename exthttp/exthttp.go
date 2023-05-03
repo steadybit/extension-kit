@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -93,13 +94,21 @@ func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) 
 
 func LogRequestWithLevelFunc(next func(w http.ResponseWriter, r *http.Request, body []byte), level func(r *http.Request) zerolog.Level) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqId := uuid.New().String()
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			log.WithLevel(level(r)).Msgf("Req %s: %s %s (Multipart)", reqId, r.Method, r.URL)
+			next(extutil.Ptr(LoggingHttpResponseWriter{
+				delegate: w,
+				reqId:    reqId,
+			}), r, nil)
+			return
+		}
+
 		body, bodyReadErr := io.ReadAll(r.Body)
 		if bodyReadErr != nil {
 			http.Error(w, bodyReadErr.Error(), http.StatusBadRequest)
 			return
 		}
-
-		reqId := uuid.New().String()
 
 		bodyLength := len(body)
 		if bodyLength == 0 {

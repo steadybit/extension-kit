@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.15
+
+- HTTP-Request-Logger: do not read multipart bodies
+
 ## 1.7.14
 
 - added util methods mainly for tests (JsonMangle)
