@@ -18,6 +18,7 @@ func InitZeroLog() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 	logFormat := os.Getenv("STEADYBIT_LOG_FORMAT")
+	log.Logger = log.With().Caller().Logger()
 	if strings.ToLower(logFormat) != "json" {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}

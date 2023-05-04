@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.16
+
+- Add Caller to logging
+- Added extfile with some file helpers
+
 ## 1.7.15
 
 - HTTP-Request-Logger: do not read multipart bodies
