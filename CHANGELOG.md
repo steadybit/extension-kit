@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.17
+
+- only log caller when using debug level
+
 ## 1.7.16
 
 - Add Caller to logging
