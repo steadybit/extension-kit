@@ -18,7 +18,6 @@ func InitZeroLog() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 	logFormat := os.Getenv("STEADYBIT_LOG_FORMAT")
-	log.Logger = log.With().Caller().Logger()
 	if strings.ToLower(logFormat) != "json" {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
@@ -30,6 +29,9 @@ func InitZeroLog() {
 	level, err := zerolog.ParseLevel(strings.ToLower(logLevel))
 	if err != nil {
 		log.Panic().Msgf("Unsupported log level defined via environment variable: %s\n", logLevel)
+	}
+	if level == zerolog.DebugLevel {
+		log.Logger = log.With().Caller().Logger()
 	}
 	zerolog.SetGlobalLevel(level)
 }
