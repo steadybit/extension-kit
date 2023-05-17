@@ -172,9 +172,9 @@ func TestToToStringArray(t *testing.T) {
 
 func TestMaskString(t *testing.T) {
 	type args struct {
-		s      string
-		search string
-		len    int
+		s         string
+		search    string
+		remaining int
 	}
 	tests := []struct {
 		name string
@@ -182,25 +182,30 @@ func TestMaskString(t *testing.T) {
 		want string
 	}{
 		{name: "should mask", args: args{
-			s:      "command --apiKey=123456 --fast",
-			search: "apiKey=",
-			len:    4},
+			s:         "command --apiKey=123456 --fast",
+			search:    "123456",
+			remaining: 0},
+			want: "command --apiKey=****** --fast"},
+		{name: "should mask with remaining runes", args: args{
+			s:         "command --apiKey=123456 --fast",
+			search:    "123456",
+			remaining: 2},
 			want: "command --apiKey=****56 --fast"},
+		{name: "should not fail if remaining is too large", args: args{
+			s:         "command --apiKey=123456 --fast",
+			search:    "123456",
+			remaining: 10},
+			want: "command --apiKey=123456 --fast"},
 		{name: "should ignore if search not present", args: args{
-			s:      "command --fast",
-			search: "apiKey=",
-			len:    4},
+			s:         "command --fast",
+			search:    "123456",
+			remaining: 0},
 			want: "command --fast"},
-		{name: "should not fail if len is too long", args: args{
-			s:      "command --apiKey=123456",
-			search: "apiKey=",
-			len:    10},
-			want: "command --apiKey=******"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := MaskStringAfter(tt.args.s, tt.args.search, tt.args.len); got != tt.want {
-				t.Errorf("MaskStringAfter() = %v, want %v", got, tt.want)
+			if got := MaskString(tt.args.s, tt.args.search, tt.args.remaining); got != tt.want {
+				t.Errorf("MaskString() = %v, want %v", got, tt.want)
 			}
 		})
 	}

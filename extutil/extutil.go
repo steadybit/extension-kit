@@ -167,17 +167,14 @@ func JsonMangle[T any](in T) T {
 	return in
 }
 
-func MaskStringAfter(s string, search string, length int) string {
+func MaskString(s string, search string, remaining int) string {
 	searchStringIndex := strings.Index(s, search)
 	if searchStringIndex == -1 {
 		return s
 	}
 
-	startIndex := searchStringIndex + len(search)
-	stopIndex := startIndex + length
-	if stopIndex > len(s) {
-		stopIndex = len(s)
-	}
+	startIndex := searchStringIndex
+	stopIndex := startIndex + len(search) - remaining
 
 	out := []rune(s)
 	for i := startIndex; i < stopIndex; i++ {
