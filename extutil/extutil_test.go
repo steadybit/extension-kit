@@ -169,3 +169,39 @@ func TestToToStringArray(t *testing.T) {
 	value := ToStringArray([]any{"key", "testKey", "value", "testValue"})
 	require.Equal(t, []string([]string{"key", "testKey", "value", "testValue"}), value)
 }
+
+func TestMaskString(t *testing.T) {
+	type args struct {
+		s      string
+		search string
+		len    int
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{name: "should mask", args: args{
+			s:      "command --apiKey=123456 --fast",
+			search: "apiKey=",
+			len:    4},
+			want: "command --apiKey=****56 --fast"},
+		{name: "should ignore if search not present", args: args{
+			s:      "command --fast",
+			search: "apiKey=",
+			len:    4},
+			want: "command --fast"},
+		{name: "should not fail if len is too long", args: args{
+			s:      "command --apiKey=123456",
+			search: "apiKey=",
+			len:    10},
+			want: "command --apiKey=******"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MaskStringAfter(tt.args.s, tt.args.search, tt.args.len); got != tt.want {
+				t.Errorf("MaskStringAfter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

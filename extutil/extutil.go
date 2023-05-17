@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/steadybit/extension-kit/extconversion"
 	"strconv"
+	"strings"
 )
 
 // Ptr returns a pointer to the given value. You will find this helpful when desiring to pass a literal value to a function that requires a pointer.
@@ -164,4 +165,24 @@ func JsonMangle[T any](in T) T {
 		panic(err)
 	}
 	return in
+}
+
+func MaskStringAfter(s string, search string, length int) string {
+	searchStringIndex := strings.Index(s, search)
+	if searchStringIndex == -1 {
+		return s
+	}
+
+	startIndex := searchStringIndex + len(search)
+	stopIndex := startIndex + length
+	if stopIndex > len(s) {
+		stopIndex = len(s)
+	}
+
+	out := []rune(s)
+	for i := startIndex; i < stopIndex; i++ {
+		out[i] = '*'
+	}
+
+	return string(out)
 }
