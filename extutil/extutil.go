@@ -88,6 +88,28 @@ func ToInt(val interface{}) int {
 	}
 }
 
+func ToInt32(val interface{}) int32 {
+	switch val := val.(type) {
+	case int:
+		return int32(val)
+	case int32:
+		return val
+	case int64:
+		return int32(val)
+	case float32:
+		return int32(val)
+	case float64:
+		return int32(val)
+	case string:
+		i, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return int32(i)
+		}
+	}
+	return 0
+
+}
+
 func ToString(val interface{}) string {
 	if val == nil {
 		return ""
