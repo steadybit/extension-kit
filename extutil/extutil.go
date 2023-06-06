@@ -101,10 +101,11 @@ func ToInt32(val interface{}) int32 {
 	case float64:
 		return int32(val)
 	case string:
-		i, err := strconv.ParseInt(val, 10, 64)
+		i, err := strconv.ParseInt(val, 10, 32)
 		if err != nil {
-			return int32(i)
+			return 0
 		}
+		return int32(i)
 	}
 	return 0
 
