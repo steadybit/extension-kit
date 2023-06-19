@@ -10,14 +10,16 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
 	stdLog "log"
+	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 type ListenSpecification struct {
-	Port int `json:"port" split_words:"true" required:"false"`
-
+	Port          int      `json:"port" split_words:"true" required:"false"`
+	UnixSocket    string   `json:"unixSocket" split_words:"true" required:"false"`
 	TlsServerCert string   `json:"tlsServerCert" split_words:"true" required:"false"`
 	TlsServerKey  string   `json:"tlsServerKey" split_words:"true" required:"false"`
 	TlsClientCas  []string `json:"tlsClientCas" split_words:"true" required:"false"`
@@ -53,7 +55,6 @@ type ListenOpts struct {
 
 func Listen(opts ListenOpts) {
 	_, start, err := listen(opts)
-
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Failed to start extension server")
 	}
@@ -64,12 +65,23 @@ func Listen(opts ListenOpts) {
 	}
 }
 
+func IsUnixSocketEnabled() bool {
+	spec := ListenSpecification{}
+	spec.parseConfigurationFromEnvironment()
+	return spec.UnixSocket != ""
+}
+
 func listen(opts ListenOpts) (*http.Server, func() error, error) {
 	spec := ListenSpecification{}
 	spec.parseConfigurationFromEnvironment()
 	err := spec.validateSpecification()
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Failed to validate HTTP server configuration.")
+	}
+
+	if spec.UnixSocket != "" {
+		log.Info().Msgf("Starting extension server on unix socket %s", spec.UnixSocket)
+		return prepareUnixSocketServer(spec.UnixSocket)
 	}
 
 	port := opts.Port
@@ -101,6 +113,30 @@ func prepareHttpServer(port int) (*http.Server, func() error, error) {
 	}
 
 	return server, server.ListenAndServe, nil
+}
+
+func prepareUnixSocketServer(path string) (*http.Server, func() error, error) {
+	server := &http.Server{
+		ErrorLog: stdLog.New(&forwardToZeroLogWriter{}, "", 0),
+	}
+
+	if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
+		err = os.MkdirAll(filepath.Dir(path), 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory for unix socket: %w", err)
+		}
+	} else {
+		_ = os.Remove(path)
+	}
+
+	unixListener, err := net.Listen("unix", path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed listen on unix socket: %w", err)
+	}
+
+	return server, func() error {
+		return server.Serve(unixListener)
+	}, nil
 }
 
 func prepareHttpsServer(port int, spec ListenSpecification) (*http.Server, func() error, error) {
