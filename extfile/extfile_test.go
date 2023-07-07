@@ -18,6 +18,7 @@ func TestAppendToFile(t *testing.T) {
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(file)
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "Hello World!\nHello Daniel!")
 }
 
@@ -28,5 +29,6 @@ func TestFile2Base64(t *testing.T) {
 	require.NoError(t, err)
 
 	content, err := File2Base64(file)
-	assert.Contains(t, string(content), "SGVsbG8gV29ybGQhCg==")
+	require.NoError(t, err)
+	assert.Contains(t, content, "SGVsbG8gV29ybGQhCg==")
 }

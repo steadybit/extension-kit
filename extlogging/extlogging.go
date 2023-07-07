@@ -17,9 +17,21 @@ import (
 func InitZeroLog() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
+	noColor := false
+	logColor := os.Getenv("STEADYBIT_LOG_COLOR")
+	if strings.ToLower(logColor) == "false" {
+		noColor = true
+	} else if strings.ToLower(logColor) == "true" {
+		noColor = false
+	} else {
+		if stat, err := os.Stderr.Stat(); err == nil {
+			noColor = (stat.Mode() & os.ModeCharDevice) != os.ModeCharDevice // check if stderr is not a terminal
+		}
+	}
+
 	logFormat := os.Getenv("STEADYBIT_LOG_FORMAT")
 	if strings.ToLower(logFormat) != "json" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: noColor})
 	}
 
 	logLevel := os.Getenv("STEADYBIT_LOG_LEVEL")

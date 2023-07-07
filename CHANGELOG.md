@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.0
+
+- add support for listening on unix domain sockets instead of TCP ports
+- log output is now colorized by default if the output is a terminal; can be overriden using `STEADYBIT_LOG_COLOR`
+
 ## 1.7.17
 
 - only log caller when using debug level
