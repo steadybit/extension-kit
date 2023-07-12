@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
+	"github.com/steadybit/extension-kit/exthttp"
 	"net/http"
 	"sync/atomic"
 )
@@ -26,16 +27,16 @@ func (spec *HealthSpecification) parseConfigurationFromEnvironment() {
 	}
 }
 
-// AddLivenessProbe registers an HTTP handler for the liveness probe. The liveness probe reports HTTP 200 as soon as the HTTP server is up and running.
-func addLivenessProbe(serverMux *http.ServeMux) {
-	serverMux.Handle("/health/liveness", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// addLivenessProbe registers an HTTP handler for the liveness probe. The liveness probe reports HTTP 200 as soon as the HTTP server is up and running.
+func addLivenessProbe(registerFn func(string, http.Handler)) {
+	registerFn("/health/liveness", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 }
 
-// AddReadinessProbe registers an HTTP handler for the readiness probe. The readiness probe reports an error (HTTP 503) when the SetReady function is called with false. Default readiness state is true.
-func addReadinessProbe(serverMux *http.ServeMux) {
-	serverMux.Handle("/health/readiness", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// addReadinessProbe registers an HTTP handler for the readiness probe. The readiness probe reports an error (HTTP 503) when the SetReady function is called with false. Default readiness state is true.
+func addReadinessProbe(registerFn func(string, http.Handler)) {
+	registerFn("/health/readiness", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if atomic.LoadInt32(&isReady) == 1 {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -46,6 +47,12 @@ func addReadinessProbe(serverMux *http.ServeMux) {
 
 // StartProbes will start liveness and readiness probes.
 func StartProbes(port int) {
+	if exthttp.IsUnixSocketEnabled() {
+		addLivenessProbe(http.Handle)
+		addReadinessProbe(http.Handle)
+		return
+	}
+
 	spec := HealthSpecification{}
 	spec.parseConfigurationFromEnvironment()
 
@@ -54,12 +61,12 @@ func StartProbes(port int) {
 		healthPort = spec.Port
 	}
 
-	serverMuxProbes := http.NewServeMux()
-	addLivenessProbe(serverMuxProbes)
-	addReadinessProbe(serverMuxProbes)
+	serverMux := http.NewServeMux()
+	addLivenessProbe(serverMux.Handle)
+	addReadinessProbe(serverMux.Handle)
 	go func() {
 		log.Info().Msgf("Starting probes server on port %d, ready: %t", healthPort, atomic.LoadInt32(&isReady) == 1)
-		err := http.ListenAndServe(fmt.Sprintf(":%d", healthPort), serverMuxProbes)
+		err := http.ListenAndServe(fmt.Sprintf(":%d", healthPort), serverMux)
 		if err != nil {
 			log.Fatal().Err(err).Msgf("Failed to start probes server")
 		}

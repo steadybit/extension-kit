@@ -2,7 +2,8 @@
 
 # ExtensionKit
 
-Through kits like ActionKit and DiscoveryKit, Steadybit can be extended with new capabilities. Such *Kit usages are called extensions. ExtensionKit
+Through kits like ActionKit and DiscoveryKit, Steadybit can be extended with new capabilities. Such *Kit usages are
+called extensions. ExtensionKit
 contains helpful utilities and best practices for extension authors leveraging the Go programming language.
 
 ## Installation
@@ -15,7 +16,8 @@ go get github.com/steadybit/extension-kit
 
 ## Environment Variables
 
-Extension using this extension kit can be configured through environment variables. The following environment variables are supported:
+Extension using this extension kit can be configured through environment variables. The following environment variables
+are supported:
 
 | Environment Variable                  | Meaning                                                                                                                                                                | Default |
 |---------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
@@ -24,5 +26,7 @@ Extension using this extension kit can be configured through environment variabl
 | `STEADYBIT_EXTENSION_TLS_SERVER_CERT` | Optional absolute path to a TLS certificate that will be used to open an **HTTPS** server.                                                                             |         |
 | `STEADYBIT_EXTENSION_TLS_SERVER_KEY`  | Optional absolute path to a file containing the key to the server certificate.                                                                                         |         |
 | `STEADYBIT_EXTENSION_TLS_CLIENT_CAS`  | Optional comma-separated list of absolute paths to files containing TLS certificates. When specified, the server will expect clients to authenticate using mutual TLS. |         |
+| `STEADYBIT_EXTENSION_UNIX_SOCKET`     | If set the extension will listen using a unix domain socket instead of tcp.                                                                                            |         |
 | `STEADYBIT_LOG_FORMAT`                | Defines the log format that the extension will use. Possible values are `text` and `json`.                                                                             | text    |
 | `STEADYBIT_LOG_LEVEL`                 | Defines the active log level. Possible values are `debug`, `info`, `warn` and `error`.                                                                                 | info    |
+| `STEADYBIT_LOG_COLOR`                 | Defines colorization of log output. Possible values are `true`, `false` and unset. If unset will use color only if stderr is a terminal.                               |         |

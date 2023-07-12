@@ -4,15 +4,17 @@
 package exthttp
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"github.com/phayes/freeport"
 	"github.com/stretchr/testify/require"
+	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestValidateSpecificationSuccessHttp(t *testing.T) {
@@ -66,7 +68,6 @@ func TestStartHttpServer(t *testing.T) {
 
 	go start()
 	defer server.Close()
-	time.Sleep(1 * time.Second)
 
 	resp, err := http.Get(fmt.Sprintf("http://localhost:%d", port))
 
@@ -86,7 +87,6 @@ func TestStartHttpsServer(t *testing.T) {
 
 	go start()
 	defer server.Close()
-	time.Sleep(1 * time.Second)
 
 	_, err = http.Get(fmt.Sprintf("https://localhost:%d", port))
 	require.ErrorContains(t, err, "certificate")
@@ -133,7 +133,6 @@ func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *t
 
 	go start()
 	defer server.Close()
-	time.Sleep(1 * time.Second)
 
 	_, err = http.Get(fmt.Sprintf("https://localhost:%d", port))
 
@@ -153,7 +152,6 @@ func TestStartHttpsServerWithMutualTlsMustSuccessfullyAllowMutualTlsConnections(
 
 	go start()
 	defer server.Close()
-	time.Sleep(1 * time.Second)
 
 	cert, err := tls.LoadX509KeyPair("testdata/cert.pem", "testdata/key.pem")
 	require.NoError(t, err)
@@ -175,4 +173,27 @@ func TestStartHttpsServerWithMutualTlsMustSuccessfullyAllowMutualTlsConnections(
 	r, err := client.Get(fmt.Sprintf("https://localhost:%d", port))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNotFound, r.StatusCode)
+}
+
+func TestStartHttpServerUsingUnixSocket(t *testing.T) {
+	sock := filepath.Join(t.TempDir(), "sock")
+
+	server, start, err := prepareUnixSocketServer(sock)
+	require.NoError(t, err)
+
+	go start()
+	defer server.Close()
+
+	client := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", sock)
+			},
+		},
+	}
+
+	resp, err := client.Get("http://localhost")
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
