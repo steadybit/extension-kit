@@ -10,12 +10,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"os"
 	"strings"
+	"time"
 )
 
 // InitZeroLog configures the zerolog logging output in a standardized way. More specifically, it configures the output to be sent to stderr,
 // a human-readable output format, the time format and the global log level.
 func InitZeroLog() {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
 
 	noColor := false
 	logColor := os.Getenv("STEADYBIT_LOG_COLOR")
@@ -31,7 +32,7 @@ func InitZeroLog() {
 
 	logFormat := os.Getenv("STEADYBIT_LOG_FORMAT")
 	if strings.ToLower(logFormat) != "json" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: noColor})
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: noColor, TimeFormat: time.DateTime + ".000"})
 	}
 
 	logLevel := os.Getenv("STEADYBIT_LOG_LEVEL")

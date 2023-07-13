@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.1
+
+- add seconds and milliseconds to log output
+
 ## 1.8.0
 
 - add support for listening on unix domain sockets instead of TCP ports
