@@ -55,7 +55,8 @@ func (w *LoggingHttpResponseWriter) Header() http.Header {
 }
 
 func (w *LoggingHttpResponseWriter) Write(bytes []byte) (int, error) {
-	log.Debug().Msgf("Req %s response body: %s", w.reqId, bytes)
+	log.Debug().Msgf("Req %s response body length: %d bytes", w.reqId, len(bytes))
+	log.Trace().Msgf("Req %s response body: %s", w.reqId, bytes)
 	return w.delegate.Write(bytes)
 }
 

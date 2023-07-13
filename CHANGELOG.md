@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.2
+
+- only log response body in trace level
+
 ## 1.8.1
 
 - add seconds and milliseconds to log output
