@@ -173,11 +173,19 @@ func prepareHttpsServer(port int, spec ListenSpecification) (*http.Server, func(
 func loadCertPool(filePaths []string) (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
 	for _, filePath := range filePaths {
-		caCert, err := os.ReadFile(filePath)
-		if err != nil {
-			return nil, err
-		}
-		pool.AppendCertsFromPEM(caCert)
+		_ = filepath.Walk(filePath, func(path string, info os.FileInfo, _ error) error {
+			if info.IsDir() {
+				return nil
+			}
+			caCert, err := os.ReadFile(path)
+			if err == nil {
+				log.Debug().Msgf("Loading CA certificate from %s", path)
+				pool.AppendCertsFromPEM(caCert)
+			} else {
+				log.Error().Err(err).Msgf("Failed to read CA certificate from %s", path)
+			}
+			return nil
+		})
 	}
 	return pool, nil
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.4
+
+- Support loading client certificates from directories
+
 ## 1.8.3
 
 - reload tls server key pair if the file changes

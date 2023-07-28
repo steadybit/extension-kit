@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/madflojo/testcerts"
 	"github.com/phayes/freeport"
 	"github.com/stretchr/testify/require"
 	"net"
@@ -76,52 +77,83 @@ func TestStartHttpServer(t *testing.T) {
 }
 
 func TestStartHttpsServer(t *testing.T) {
+	certs, err := testcerts.NewCA().NewKeyPair("localhost")
+	require.NoError(t, err)
+
+	cert, key, err := certs.ToTempFile(t.TempDir())
+	require.NoError(t, err)
+
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
 	server, start, err := prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: "testdata/cert.pem",
-		TlsServerKey:  "testdata/key.pem",
+		TlsServerCert: cert.Name(),
+		TlsServerKey:  key.Name(),
 	})
 	require.NoError(t, err)
 
 	go start()
 	defer server.Close()
 
-	_, err = http.Get(fmt.Sprintf("https://localhost:%d", port))
-	require.ErrorContains(t, err, "certificate")
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(certs.PublicKey())
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: pool,
+			},
+		},
+	}
+	_, err = client.Get(fmt.Sprintf("https://localhost:%d", port))
+	require.NoError(t, err)
 }
 
 func TestStartHttpsServerMustFailWhenCertificateCannotBeFound(t *testing.T) {
+	_, key, err := testcerts.GenerateCertsToTempFile(t.TempDir())
+	require.NoError(t, err)
+
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
 	_, _, err = prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: "testdata/unknown.pem",
-		TlsServerKey:  "testdata/key.pem",
+		TlsServerCert: filepath.Join(t.TempDir(), "unknown.pem"),
+		TlsServerKey:  key,
 	})
 	require.ErrorContains(t, err, "no such file or directory")
 }
 
 func TestStartHttpsServerMustFailWhenKeyCannotBeFound(t *testing.T) {
+	_, key, err := testcerts.GenerateCertsToTempFile(t.TempDir())
+	require.NoError(t, err)
+
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
 	_, _, err = prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: "testdata/cert.pem",
-		TlsServerKey:  "testdata/unknown.pem",
+		TlsServerCert: key,
+		TlsServerKey:  filepath.Join(t.TempDir(), "unknown.pem"),
 	})
 	require.ErrorContains(t, err, "no such file or directory")
 }
 
 func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *testing.T) {
+	ca := testcerts.NewCA()
+	caCerts, _, err := ca.ToTempFile(t.TempDir())
+	require.NoError(t, err)
+
+	serverPair, err := ca.NewKeyPair("localhost")
+	require.NoError(t, err)
+	serverCert, serverKey, err := serverPair.ToTempFile(t.TempDir())
+	require.NoError(t, err)
+
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
 	server, start, err := prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: "testdata/cert.pem",
-		TlsServerKey:  "testdata/key.pem",
-		TlsClientCas:  []string{"testdata/cert.pem"},
+		TlsServerCert: serverCert.Name(),
+		TlsServerKey:  serverKey.Name(),
+		TlsClientCas:  []string{caCerts.Name()},
 	})
 	require.NoError(t, err)
 
@@ -129,37 +161,47 @@ func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *t
 	defer server.Close()
 
 	_, err = http.Get(fmt.Sprintf("https://localhost:%d", port))
-
 	require.ErrorContains(t, err, "failed to verify certificate")
 }
 
-func TestStartHttpsServerWithMutualTlsMustSuccessfullyAllowMutualTlsConnections(t *testing.T) {
+func TestStartHttpsServerEnforcingMutualTls(t *testing.T) {
+	ca := testcerts.NewCA()
+
+	clientPair, err := ca.NewKeyPair()
+	require.NoError(t, err)
+	clientCertDir := t.TempDir()
+	err = os.WriteFile(filepath.Join(clientCertDir, "client.crt"), clientPair.PublicKey(), 0644)
+	require.NoError(t, err)
+
+	serverPair, err := ca.NewKeyPair("localhost")
+	require.NoError(t, err)
+	serverCert, serverKey, err := serverPair.ToTempFile(t.TempDir())
+	require.NoError(t, err)
+
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
 	server, start, err := prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: "testdata/cert.pem",
-		TlsServerKey:  "testdata/key.pem",
-		TlsClientCas:  []string{"testdata/cert.pem"},
+		TlsServerCert: serverCert.Name(),
+		TlsServerKey:  serverKey.Name(),
+		TlsClientCas:  []string{clientCertDir},
 	})
 	require.NoError(t, err)
 
 	go start()
 	defer server.Close()
 
-	cert, err := tls.LoadX509KeyPair("testdata/cert.pem", "testdata/key.pem")
+	clientCertificate, err := tls.X509KeyPair(clientPair.PublicKey(), clientPair.PrivateKey())
 	require.NoError(t, err)
 
-	caCert, err := os.ReadFile("testdata/cert.pem")
-	require.NoError(t, err)
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	clientPool := x509.NewCertPool()
+	clientPool.AppendCertsFromPEM(serverPair.PublicKey())
 
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs:      caCertPool,
-				Certificates: []tls.Certificate{cert},
+				RootCAs:      clientPool,
+				Certificates: []tls.Certificate{clientCertificate},
 			},
 		},
 	}
