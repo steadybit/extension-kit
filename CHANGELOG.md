@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.3
+
+- reload tls server key pair if the file changes
+
 ## 1.8.2
 
 - only log response body in trace level

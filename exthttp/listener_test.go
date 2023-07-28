@@ -96,13 +96,10 @@ func TestStartHttpsServerMustFailWhenCertificateCannotBeFound(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
-	_, start, err := prepareHttpsServer(port, ListenSpecification{
+	_, _, err = prepareHttpsServer(port, ListenSpecification{
 		TlsServerCert: "testdata/unknown.pem",
 		TlsServerKey:  "testdata/key.pem",
 	})
-	require.NoError(t, err)
-
-	err = start()
 	require.ErrorContains(t, err, "no such file or directory")
 }
 
@@ -110,13 +107,10 @@ func TestStartHttpsServerMustFailWhenKeyCannotBeFound(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
-	_, start, err := prepareHttpsServer(port, ListenSpecification{
+	_, _, err = prepareHttpsServer(port, ListenSpecification{
 		TlsServerCert: "testdata/cert.pem",
 		TlsServerKey:  "testdata/unknown.pem",
 	})
-	require.NoError(t, err)
-
-	err = start()
 	require.ErrorContains(t, err, "no such file or directory")
 }
 
@@ -126,7 +120,7 @@ func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *t
 
 	server, start, err := prepareHttpsServer(port, ListenSpecification{
 		TlsServerCert: "testdata/cert.pem",
-		TlsServerKey:  "testdata/unknown.pem",
+		TlsServerKey:  "testdata/key.pem",
 		TlsClientCas:  []string{"testdata/cert.pem"},
 	})
 	require.NoError(t, err)
@@ -136,7 +130,7 @@ func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *t
 
 	_, err = http.Get(fmt.Sprintf("https://localhost:%d", port))
 
-	require.ErrorContains(t, err, "connect: connection refused")
+	require.ErrorContains(t, err, "failed to verify certificate")
 }
 
 func TestStartHttpsServerWithMutualTlsMustSuccessfullyAllowMutualTlsConnections(t *testing.T) {

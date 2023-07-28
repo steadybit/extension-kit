@@ -140,7 +140,15 @@ func prepareUnixSocketServer(path string) (*http.Server, func() error, error) {
 }
 
 func prepareHttpsServer(port int, spec ListenSpecification) (*http.Server, func() error, error) {
-	tlsConfig := tls.Config{}
+	certReloader := NewCertReloader(spec.TlsServerCert, spec.TlsServerKey)
+
+	if _, err := certReloader.GetCertificate(nil); err != nil {
+		return nil, nil, fmt.Errorf("failed to load TLS certificate: %w", err)
+	}
+
+	tlsConfig := tls.Config{
+		GetCertificate: certReloader.GetCertificate,
+	}
 
 	if len(spec.TlsClientCas) > 0 {
 		clientCAs, err := loadCertPool(spec.TlsClientCas)
@@ -158,7 +166,7 @@ func prepareHttpsServer(port int, spec ListenSpecification) (*http.Server, func(
 		ErrorLog:  stdLog.New(&forwardToZeroLogWriter{}, "", 0),
 	}
 	return server, func() error {
-		return server.ListenAndServeTLS(spec.TlsServerCert, spec.TlsServerKey)
+		return server.ListenAndServeTLS("", "")
 	}, nil
 }
 
