@@ -36,6 +36,14 @@ func (spec *ListenSpecification) isTlsEnabled() bool {
 	return spec.TlsServerCert != "" || spec.TlsServerKey != "" || len(spec.TlsClientCas) > 0
 }
 
+func (spec *ListenSpecification) getClientAuthType() tls.ClientAuthType {
+	if len(spec.TlsClientCas) > 0 {
+		return tls.RequireAndVerifyClientCert
+	} else {
+		return tls.NoClientCert
+	}
+}
+
 func (spec *ListenSpecification) validateSpecification() error {
 	tlsEnabled := spec.isTlsEnabled()
 
@@ -79,18 +87,14 @@ func listen(opts ListenOpts) (*http.Server, func() error, error) {
 		log.Fatal().Err(err).Msgf("Failed to validate HTTP server configuration.")
 	}
 
-	if spec.UnixSocket != "" {
-		log.Info().Msgf("Starting extension server on unix socket %s", spec.UnixSocket)
-		return prepareUnixSocketServer(spec.UnixSocket)
-	}
-
 	port := opts.Port
 	if spec.Port != 0 {
 		port = spec.Port
 	}
 
-	log.Info().Msgf("Starting extension server on port %d (TLS: %v)", port, spec.isTlsEnabled())
-	if spec.isTlsEnabled() {
+	if spec.UnixSocket != "" {
+		return prepareUnixSocketServer(spec.UnixSocket)
+	} else if spec.isTlsEnabled() {
 		return prepareHttpsServer(port, spec)
 	} else {
 		return prepareHttpServer(port)
@@ -112,7 +116,12 @@ func prepareHttpServer(port int) (*http.Server, func() error, error) {
 		ErrorLog: stdLog.New(&forwardToZeroLogWriter{}, "", 0),
 	}
 
-	return server, server.ListenAndServe, nil
+	start := func() error {
+		log.Info().Msgf("Starting extension http server on port %d", port)
+		return server.ListenAndServe()
+	}
+
+	return server, start, nil
 }
 
 func prepareUnixSocketServer(path string) (*http.Server, func() error, error) {
@@ -135,6 +144,7 @@ func prepareUnixSocketServer(path string) (*http.Server, func() error, error) {
 	}
 
 	return server, func() error {
+		log.Info().Msgf("Starting extension http server on unix domain socket (%s)", path)
 		return server.Serve(unixListener)
 	}, nil
 }
@@ -146,18 +156,15 @@ func prepareHttpsServer(port int, spec ListenSpecification) (*http.Server, func(
 		return nil, nil, fmt.Errorf("failed to load TLS certificate: %w", err)
 	}
 
-	tlsConfig := tls.Config{
-		GetCertificate: certReloader.GetCertificate,
+	clientCAs, err := loadCertPool(spec.TlsClientCas)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load TLS client CA certificates: %w", err)
 	}
 
-	if len(spec.TlsClientCas) > 0 {
-		clientCAs, err := loadCertPool(spec.TlsClientCas)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to load TLS client CA certificates: %w", err)
-		}
-
-		tlsConfig.ClientCAs = clientCAs
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	tlsConfig := tls.Config{
+		GetCertificate: certReloader.GetCertificate,
+		ClientAuth:     spec.getClientAuthType(),
+		ClientCAs:      clientCAs,
 	}
 
 	server := &http.Server{
@@ -166,6 +173,7 @@ func prepareHttpsServer(port int, spec ListenSpecification) (*http.Server, func(
 		ErrorLog:  stdLog.New(&forwardToZeroLogWriter{}, "", 0),
 	}
 	return server, func() error {
+		log.Info().Msgf("Starting extension https server on port %d (ClientAuth: %s)", port, spec.getClientAuthType())
 		return server.ListenAndServeTLS("", "")
 	}, nil
 }
