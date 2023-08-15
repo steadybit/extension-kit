@@ -106,7 +106,13 @@ type forwardToZeroLogWriter struct {
 
 func (fw *forwardToZeroLogWriter) Write(p []byte) (n int, err error) {
 	trimmed := strings.Trim(string(p), " \t\n\r")
-	log.Error().Msg(trimmed)
+	if strings.Contains(trimmed, "TLS handshake error") &&
+		strings.Contains(trimmed, "unknown certificate") || strings.Contains(trimmed, "client didn't provide a certificate") {
+		// Ignore/only log on debug TLS handshake errors when client did not provide a certificate
+		log.Debug().Msg(trimmed)
+	} else {
+		log.Error().Msg(trimmed)
+	}
 	return len([]byte(trimmed)), nil
 }
 
