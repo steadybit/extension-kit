@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.7
+
+- remove broken seccomp stuff from extruntime.LogRuntimeInformation
+
 ## 1.8.6
 
 - add LogRuntimeInformation

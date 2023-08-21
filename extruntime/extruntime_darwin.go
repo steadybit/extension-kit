@@ -8,6 +8,3 @@ import (
 
 func logCapsInformation(_ zerolog.Level) {
 }
-
-func logSeccompInformation(_ zerolog.Level) {
-}
