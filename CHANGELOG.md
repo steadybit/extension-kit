@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.6
+
+- add LogRuntimeInformation
+
+## 1.8.5
+
+- log tls errors on debug
+
 ## 1.8.4
 
 - Support loading client certificates from directories
