@@ -8,3 +8,6 @@ import (
 
 func logCapsInformation(_ zerolog.Level) {
 }
+
+func logUnameInformation(_ zerolog.Level) {
+}

@@ -14,5 +14,7 @@ func LogRuntimeInformation(level zerolog.Level) {
 
 	log.WithLevel(level).Msgf("Go Runtime information: os=%s; arch=%s", runtime.GOOS, runtime.GOARCH)
 	log.WithLevel(level).Msgf("Process information: pid=%d; uid=%d; gid=%d", os.Getpid(), os.Getuid(), os.Getgid())
+
+	logUnameInformation(level)
 	logCapsInformation(level)
 }
