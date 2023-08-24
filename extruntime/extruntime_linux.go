@@ -13,10 +13,10 @@ import (
 
 func logCapsInformation(level zerolog.Level) {
 	caps, err := exec.Command("getpcaps", strconv.Itoa(os.Getpid())).CombinedOutput()
-	if err != nil {
+	if err == nil {
 		log.WithLevel(level).Msgf("Process capabilities: %s", string(caps))
 	} else {
-		log.WithLevel(level).Msgf("Process capabilities: %s", err)
+		log.WithLevel(level).Msgf("Process capabilities: %s", err.Error())
 	}
 }
 
