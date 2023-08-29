@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.8
+
+- log properly formatted timestamps in json logs
+- use structured logging for http request logging
+
 ## 1.8.7
 
 - remove broken seccomp stuff from extruntime.LogRuntimeInformation
