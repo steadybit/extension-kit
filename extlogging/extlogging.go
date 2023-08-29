@@ -10,31 +10,33 @@ import (
 	"github.com/rs/zerolog/log"
 	"os"
 	"strings"
-	"time"
 )
+
+const RFC3339Micro = "2006-01-02T15:04:05.999Z07:00"
 
 // InitZeroLog configures the zerolog logging output in a standardized way. More specifically, it configures the output to be sent to stderr,
 // a human-readable output format, the time format and the global log level.
 func InitZeroLog() {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	zerolog.TimeFieldFormat = RFC3339Micro
 
-	noColor := false
-	logColor := os.Getenv("STEADYBIT_LOG_COLOR")
-	if strings.ToLower(logColor) == "false" {
-		noColor = true
-	} else if strings.ToLower(logColor) == "true" {
-		noColor = false
+	var logger zerolog.Logger
+	if strings.ToLower(os.Getenv("STEADYBIT_LOG_FORMAT")) != "json" {
+		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: getNoColor(), TimeFormat: RFC3339Micro})
 	} else {
-		if stat, err := os.Stderr.Stat(); err == nil {
-			noColor = (stat.Mode() & os.ModeCharDevice) != os.ModeCharDevice // check if stderr is not a terminal
-		}
+		logger = zerolog.New(os.Stderr)
 	}
 
-	logFormat := os.Getenv("STEADYBIT_LOG_FORMAT")
-	if strings.ToLower(logFormat) != "json" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: noColor, TimeFormat: time.DateTime + ".000"})
-	}
+	level := getLogLevel()
+	zerolog.SetGlobalLevel(level)
 
+	c := logger.With().Timestamp()
+	if level == zerolog.DebugLevel {
+		c = c.Caller()
+	}
+	log.Logger = c.Logger()
+}
+
+func getLogLevel() zerolog.Level {
 	logLevel := os.Getenv("STEADYBIT_LOG_LEVEL")
 	if len(logLevel) == 0 {
 		logLevel = "info"
@@ -43,8 +45,19 @@ func InitZeroLog() {
 	if err != nil {
 		log.Panic().Msgf("Unsupported log level defined via environment variable: %s\n", logLevel)
 	}
-	if level == zerolog.DebugLevel {
-		log.Logger = log.With().Caller().Logger()
+	return level
+}
+
+func getNoColor() bool {
+	switch strings.ToLower(os.Getenv("STEADYBIT_LOG_COLOR")) {
+	case "true":
+		return true
+	case "false":
+		return false
+	default:
+		if stat, err := os.Stderr.Stat(); err == nil {
+			return (stat.Mode() & os.ModeCharDevice) != os.ModeCharDevice // check if stderr is not a terminal
+		}
+		return false
 	}
-	zerolog.SetGlobalLevel(level)
 }
