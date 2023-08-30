@@ -92,6 +92,7 @@ func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) 
 				Int("res_size", size).
 				Int("req_size", len(reqBody)).
 				Dur("duration", duration).
+				Int("status", status).
 				Msg("")
 		})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			next(w, r, reqBody)
