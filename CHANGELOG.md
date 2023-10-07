@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.9
+
+- log gomaxprocs in debug information
+
 ## 1.8.8
 
 - log properly formatted timestamps in json logs
