@@ -5,18 +5,14 @@ package extruntime
 import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"os"
 	"os/exec"
 	"strconv"
 	"syscall"
 )
 
 func logCapsInformation(level zerolog.Level) {
-	caps, err := exec.Command("getpcaps", strconv.Itoa(os.Getpid())).CombinedOutput()
-	if err == nil {
+	if caps, err := exec.Command("getpcaps", strconv.Itoa(os.Getpid())).CombinedOutput(); err == nil {
 		log.WithLevel(level).Msgf("Process capabilities: %s", string(caps))
-	} else {
-		log.WithLevel(level).Msgf("Process capabilities: %s", err.Error())
 	}
 }
 
