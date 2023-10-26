@@ -20,13 +20,15 @@ import (
 	"time"
 )
 
+type Handler func(w http.ResponseWriter, r *http.Request, body []byte)
+
 // RegisterHttpHandler registers a handler for the given path. Also adds panic recovery and request logging around the handler.
-func RegisterHttpHandler(path string, handler func(w http.ResponseWriter, r *http.Request, body []byte)) {
+func RegisterHttpHandler(path string, handler Handler) {
 	http.Handle(path, PanicRecovery(LogRequest(handler)))
 }
 
 // GetterAsHandler turns a getter function into a handler function. Typically used in combination with the RegisterHttpHandler function.
-func GetterAsHandler[T any](handler func() T) func(w http.ResponseWriter, r *http.Request, body []byte) {
+func GetterAsHandler[T any](handler func() T) Handler {
 	return func(w http.ResponseWriter, r *http.Request, body []byte) {
 		WriteBody(w, handler())
 	}
@@ -62,7 +64,7 @@ func RequestTimeoutHeaderAware(next func(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func LogRequest(next func(w http.ResponseWriter, r *http.Request, body []byte)) http.Handler {
+func LogRequest(next Handler) http.Handler {
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		level := zerolog.InfoLevel
 		if r.Method == "GET" {
@@ -128,5 +130,29 @@ func WriteBody(w http.ResponseWriter, response any) {
 	encodeErr := json.NewEncoder(w).Encode(response)
 	if encodeErr != nil {
 		log.Err(encodeErr).Msgf("Failed to response body")
+	}
+}
+
+func LastModifiedHandler(lastModifiedFn func() time.Time, delegate Handler) Handler {
+	loc, err := time.LoadLocation("GMT")
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to load GMT location. Will not support conditional requests")
+		return delegate
+	}
+
+	return func(w http.ResponseWriter, r *http.Request, body []byte) {
+		lastModified := lastModifiedFn()
+		if !lastModified.IsZero() {
+			if modifiedSince := r.Header.Get("If-Modified-Since"); modifiedSince != "" {
+				if parsed, err := time.Parse(time.RFC1123, modifiedSince); err == nil {
+					if parsed.Before(lastModified) {
+						w.WriteHeader(http.StatusNotModified)
+						return
+					}
+				}
+			}
+			w.Header().Set("Last-Modified", lastModified.In(loc).Format(time.RFC1123))
+		}
+		delegate(w, r, body)
 	}
 }
