@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.10
+
+- provide http handler to deal with ETags
+
 ## 1.8.9
 
 - log gomaxprocs in debug information

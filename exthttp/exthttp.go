@@ -133,25 +133,15 @@ func WriteBody(w http.ResponseWriter, response any) {
 	}
 }
 
-func LastModifiedHandler(lastModifiedFn func() time.Time, delegate Handler) Handler {
-	loc, err := time.LoadLocation("GMT")
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to load GMT location. Will not support conditional requests")
-		return delegate
-	}
-
+func IfNoneMatchHandler(etagFn func() string, delegate Handler) Handler {
 	return func(w http.ResponseWriter, r *http.Request, body []byte) {
-		lastModified := lastModifiedFn()
-		if !lastModified.IsZero() {
-			if modifiedSince := r.Header.Get("If-Modified-Since"); modifiedSince != "" {
-				if parsed, err := time.Parse(time.RFC1123, modifiedSince); err == nil {
-					if parsed.Before(lastModified) {
-						w.WriteHeader(http.StatusNotModified)
-						return
-					}
-				}
+		etag := etagFn()
+		if len(etag) > 0 {
+			if ifNoneMatch := r.Header.Get("If-None-Match"); etag == ifNoneMatch {
+				w.WriteHeader(http.StatusNotModified)
+				return
 			}
-			w.Header().Set("Last-Modified", lastModified.In(loc).Format(time.RFC1123))
+			w.Header().Set("ETag", etag)
 		}
 		delegate(w, r, body)
 	}
