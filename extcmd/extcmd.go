@@ -17,7 +17,7 @@ import (
 	"sync"
 )
 
-var states = make(map[string]*CmdState)
+var states = sync.Map{}
 
 // NewCmdState create a new CmdState and registers it as a global state. The expected call pattern
 // is that NewCmdState is called immediately after the exec.Cmd is created, but before the Cmd
@@ -32,7 +32,7 @@ func NewCmdState(cmd *exec.Cmd) *CmdState {
 	cmd.Stdout = state
 	cmd.Stderr = state
 
-	states[state.Id] = state
+	states.Store(state.Id, state)
 
 	return state
 }
@@ -40,15 +40,15 @@ func NewCmdState(cmd *exec.Cmd) *CmdState {
 // GetCmdState returns the state stored under the given ID or an error in case there is no persisted
 // state under the ID.
 func GetCmdState(id string) (*CmdState, error) {
-	state, ok := states[id]
+	state, ok := states.Load(id)
 	if !ok {
 		return nil, fmt.Errorf("failed to find a command state with ID '%s'", id)
 	}
-	return state, nil
+	return state.(*CmdState), nil
 }
 
 // RemoveCmdState removes the state with the given ID. A no-op in case there is no state with this ID.
 // It is the caller's responsibility to ensure that the exec.Cmd itself is stopped.
 func RemoveCmdState(id string) {
-	delete(states, id)
+	states.Delete(id)
 }

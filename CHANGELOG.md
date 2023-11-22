@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.11
+
+- prevent concurrent map writes in `extcmd`
+
 ## 1.8.10
 
 - provide http handler to deal with ETags
