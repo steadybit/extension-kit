@@ -14,7 +14,7 @@ on:
         type: boolean
         required: true
         description: |
-          If set to 'true', the workflow will build Linux packages
+          If set to true, the workflow will build Linux packages
     secrets:
       SONAR_TOKEN:
         required: false
@@ -162,7 +162,7 @@ jobs:
           -d '{"ref":"main","inputs":{"extension":"${{ github.repository }}","version":"${{ steps.meta.outputs.version }}","revision":"${{ github.sha }}"}}'
 
   build-packages:
-    if: ${{ github.event.inputs.build_linux_packages == 'true' }}
+    if: ${{ github.event.inputs.build_linux_packages }}
     name: Build Linux Packages
     needs:
       - audit
