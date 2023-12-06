@@ -19,12 +19,14 @@ on:
         type: string
         required: false
         default: ubuntu-latest
+      use_kvm:
+        type: boolean
+        required: false
+        default: false
       run_make_prepare_audit:
         type: boolean
         required: false
         default: false
-        description: |
-          If set to true, the workflow will run the make prepare_audit command
     secrets:
       SONAR_TOKEN:
         required: false
@@ -73,15 +75,31 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Enable KVM group perms
+        if: ${{ inputs.use_kvm }}
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo apt-get update
+          sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu qemu-system-x86
+          sudo usermod -a -G kvm,libvirt $USER
+
       - name: Prepare audit
         if: ${{ inputs.run_make_prepare_audit }}
         run: |
-          make prepare_audit
+          make prepare-audit
 
       - name: Audit
         run: |
           go mod download
-          make audit
+          echo ${{ inputs.use_kvm }}
+          if [ "${{ inputs.use_kvm }}" != 'true' ]; then
+            make audit
+          else
+            echo 'exec in a new sell for the group change to take effect'
+            sudo -u $USER env "PATH=$PATH" make audit
+          fi
 
       - name: Check Sonar Token
         id: check-sonar
