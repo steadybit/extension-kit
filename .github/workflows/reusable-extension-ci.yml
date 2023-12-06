@@ -52,6 +52,12 @@ jobs:
     steps:
       - name: test
         run: echo "build_linux_packages is ${{ inputs.build_linux_packages }}"
+      - name: test2
+        if: ${{ inputs.build_linux_packages == 'true' }}
+        run: echo "build_linux_packages is 'true'"
+      - name: test3
+        if: ${{ inputs.build_linux_packages }}
+        run: echo "build_linux_packages is true"
 
       - name: Checkout repository
         uses: actions/checkout@v4
