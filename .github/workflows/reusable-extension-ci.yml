@@ -15,6 +15,10 @@ on:
         required: true
         description: |
           If set to true, the workflow will build Linux packages
+      runs_on:
+        type: string
+        required: false
+        default: ubuntu-latest
     secrets:
       SONAR_TOKEN:
         required: false
@@ -47,7 +51,7 @@ on:
 jobs:
   audit:
     name: Audit
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 60
     steps:
       - name: Checkout repository
