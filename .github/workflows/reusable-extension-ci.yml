@@ -59,6 +59,10 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Remove non-semver tags (from helmchart) for goreleaser to work properly
+        run: |
+          git tag -d $(git tag -l | grep -v "^v[0-9]*.[0-9]*.[0-9]*")
+
       - name: Audit
         run: |
           go mod download
