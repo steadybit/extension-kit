@@ -19,9 +19,12 @@ on:
         type: string
         required: false
         default: ubuntu-latest
-      prepare_audit_script:
-        type: string
+      run_make_prepare_audit:
+        type: boolean
         required: false
+        default: false
+        description: |
+          If set to true, the workflow will run the make prepare_audit command
     secrets:
       SONAR_TOKEN:
         required: false
@@ -71,14 +74,9 @@ jobs:
           go-version: '1.21'
 
       - name: Prepare audit
-        if: ${{ inputs.prepare_audit_script != '' }}
+        if: ${{ inputs.run_make_prepare_audit }}
         run: |
-          echo ${PWD}
-          ls -la
-          echo "${{ inputs.prepare_audit_script }}"
-
-#          echo "${{ inputs.prepare_audit_script }}" > audit.sh
-#          chmod +x audit.sh
+          make prepare_audit
 
       - name: Audit
         run: |
