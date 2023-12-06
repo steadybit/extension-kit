@@ -14,7 +14,7 @@ on:
         type: boolean
         required: true
         description: |
-          If set to true, the workflow will build Linux packages
+          If set to 'true', the workflow will build Linux packages
     secrets:
       SONAR_TOKEN:
         required: false
@@ -92,6 +92,10 @@ jobs:
       packages: write
 
     steps:
+
+      - name: test
+        run: echo "build_linux_packages is ${{ inputs.build_linux_packages }}"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
