@@ -55,6 +55,9 @@ on:
         required: false
         description: |
           Password for artifact server, required if build_linux_packages is true
+      SNYK_TOKEN:
+        required: false
+        description: Optional snyk token
 
 jobs:
   audit:
@@ -127,7 +130,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -192,6 +194,27 @@ jobs:
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/steadybit/extension-deployer/actions/workflows/extension-restart.yml/dispatches \
           -d '{"ref":"main","inputs":{"extension":"${{ github.repository }}","version":"${{ steps.meta.outputs.version }}","revision":"${{ github.sha }}"}}'
+
+      - name: Check snyk Token
+        id: check-snyk
+        shell: bash
+        run: |
+          if [ "${{ secrets.SNYK_TOKEN }}" != '' ]; then
+            echo "available=true" >> $GITHUB_OUTPUT;
+          else
+            echo "available=false" >> $GITHUB_OUTPUT;
+          fi
+
+      - name: Scan Container Image ghcr.io/${{ github.repository }}:latest
+        if: ${{ steps.check-snyk.outputs.available == 'true' && startsWith(github.ref, 'refs/tags/') }}
+        uses: snyk/actions/docker@master
+        continue-on-error: true
+        with:
+          image: ghcr.io/${{ github.repository }}:latest
+          args: --file=Dockerfile
+          command: monitor
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
   build-packages:
     if: ${{ inputs.build_linux_packages }}
