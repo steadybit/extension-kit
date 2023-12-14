@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: vlaurin/action-ghcr-prune@v0.5.0
         with:
-          token: ${{ secrets.TOKEN }}
+          token: ${{ secrets.token }}
           organization: ${{ github.repository_owner }}
           container: ${{ github.event.repository.name }}
           dry-run: ${{ inputs.dry_run }}
