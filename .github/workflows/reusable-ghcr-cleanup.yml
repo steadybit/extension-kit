@@ -12,7 +12,7 @@ on:
         default: false
         description: if true, no images will be deleted
     secrets:
-      TOKEN:
+      token:
         required: true
         description: GitHub PAT with repo permissions
 
