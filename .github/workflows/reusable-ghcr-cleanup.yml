@@ -15,11 +15,11 @@ on:
         type: string
         required: true
         description: the container image name to prune
-      secrets:
-        TOKEN:
-          type: string
-          required: true
-          description: GitHub PAT with repo permissions
+    secrets:
+      TOKEN:
+        type: string
+        required: true
+        description: GitHub PAT with repo permissions
 
 jobs:
   ghcr-cleanup:
