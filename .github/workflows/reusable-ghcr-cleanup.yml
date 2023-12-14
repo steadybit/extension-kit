@@ -11,10 +11,6 @@ on:
         type: boolean
         default: false
         description: if true, no images will be deleted
-      container:
-        type: string
-        required: true
-        description: the container image name to prune
     secrets:
       TOKEN:
         required: true
