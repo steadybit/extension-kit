@@ -1,0 +1,40 @@
+##
+# This workflow is triggered on a schedule and deletes old container images from the GitHub Container Registry.
+##
+
+name: ghcr-cleanup
+
+on:
+  workflow_call:
+    inputs:
+      dry_run:
+        type: boolean
+        default: false
+        description: if true, no images will be deleted
+      container:
+        type: string
+        required: true
+        description: the container image name to prune
+      secrets:
+        TOKEN:
+          required: true
+          description: GitHub PAT with repo permissions
+
+jobs:
+  ghcr-cleanup:
+    name: Delete old container images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: vlaurin/action-ghcr-prune@v0.5.0
+        with:
+          token: ${{ secrets.TOKEN }}
+          organization: ${{ github.repository_owner }}
+          container: ${{ github.event.repository.name }}
+          dry-run: ${{ inputs.dry_run }}
+          keep-younger-than: 30
+          keep-last: 10
+          keep-tags: |
+            main
+            latest
+          keep-tags-regexes: "^v?(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" #all semver          prune-tags-regexes: "^[a-f0-9]{40}$" #all commit hashes
+          prune-untagged: true
