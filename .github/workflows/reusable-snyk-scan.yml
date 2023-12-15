@@ -36,7 +36,7 @@ jobs:
         if: ${{ env.snyk_available }}
         uses: actions/checkout@v4
 
-      - name: Snyk ${{ input.command }}
+      - name: Snyk ${{ inputs.command }}
         if: ${{ env.snyk_available }}
         uses: snyk/actions/golang@master
         env:
@@ -45,7 +45,7 @@ jobs:
           args: --severity-threshold=${{ inputs.severity_threshold }}
           command: ${{ inputs.command }}
 
-      - name: Snyk ${{ input.command }} docker image ${{ env.container_image }}
+      - name: Snyk ${{ inputs.command }} docker image ${{ env.container_image }}
         if: ${{ env.snyk_available }}
         uses: snyk/actions/docker@master
         with:
