@@ -182,7 +182,6 @@ jobs:
   snyk-test:
     name: "Snyk Test ${{ startsWith(github.ref, 'refs/tags/') && '- If this breaks for CVEs, you need to revoke the published image (and move latest tag)!' || '' }}"
     uses: steadybit/extension-kit/.github/workflows/reusable-snyk-scan.yml@main
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
     needs: [build-images]
     with:
       command: test
