@@ -30,7 +30,7 @@ jobs:
     continue-on-error: true
     env:
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' }}
-      container_image: ${{ inputs.container_image || 'ghcr.io/' + github.repository + ':' + github.ref_name }}
+      container_image: ${{ inputs.container_image || format('ghcr.io/{0}:{1}', github.repository, github.ref_name) }}
     steps:
       - name: Checkout repository
         if: ${{ env.snyk_available }}
