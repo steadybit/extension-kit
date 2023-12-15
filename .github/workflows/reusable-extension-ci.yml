@@ -65,7 +65,7 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 60
     env:
-      sonar_available: ${{ secrets.SONAR_TOKEN  != '' }}
+      sonar_available: ${{ secrets.SONAR_TOKEN  != '' && 'true' || 'false' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -107,7 +107,7 @@ jobs:
           fi
 
       - name: SonarCloud Scan
-        if: ${{ env.sonar_available }}
+        if: ${{ env.sonar_available == 'true' }}
         uses: SonarSource/sonarcloud-github-action@v2.1.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -32,15 +32,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      snyk_available: ${{ secrets.SNYK_TOKEN  != '' }}
+      snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
       container_image: ${{ inputs.container_image || format('ghcr.io/{0}:{1}', github.repository, github.ref_name) }}
     steps:
       - name: Checkout repository
-        if: ${{ env.snyk_available }}
+        if: ${{ env.snyk_available == 'true' }}
         uses: actions/checkout@v4
 
       - name: Snyk ${{ inputs.command }}
-        if: ${{ env.snyk_available }}
+        if: ${{ env.snyk_available == 'true' }}
         continue-on-error: true
         uses: snyk/actions/golang@master
         env:
@@ -50,7 +50,7 @@ jobs:
           command: ${{ inputs.command }}
 
       - name: Snyk ${{ inputs.command }} docker image ${{ env.container_image }}
-        if: ${{ env.snyk_available }}
+        if: ${{ env.snyk_available == 'true' }}
         continue-on-error: true
         uses: snyk/actions/docker@master
         with:
