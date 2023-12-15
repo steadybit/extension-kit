@@ -64,6 +64,8 @@ jobs:
     name: Audit
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 60
+    env:
+      sonar_available: ${{ secrets.SONAR_TOKEN  != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -104,18 +106,8 @@ jobs:
             sudo -u $USER env "PATH=$PATH" make audit
           fi
 
-      - name: Check Sonar Token
-        id: check-sonar
-        shell: bash
-        run: |
-          if [ "${{ secrets.SONAR_TOKEN }}" != '' ]; then
-            echo "available=true" >> $GITHUB_OUTPUT;
-          else
-            echo "available=false" >> $GITHUB_OUTPUT;
-          fi
-
       - name: SonarCloud Scan
-        if: ${{ steps.check-sonar.outputs.available == 'true' }}
+        if: ${{ env.sonar_available }}
         uses: SonarSource/sonarcloud-github-action@v2.1.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -130,6 +122,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      deployer_available: ${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER  != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -174,18 +168,8 @@ jobs:
             VERSION=${{ steps.meta.outputs.version }}
             REVISION=${{ github.sha }}
 
-      - name: Check Deployer Token
-        id: check-deployer
-        shell: bash
-        run: |
-          if [ "${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER }}" != '' ]; then
-            echo "available=true" >> $GITHUB_OUTPUT;
-          else
-            echo "available=false" >> $GITHUB_OUTPUT;
-          fi
-
       - name: Trigger test environment updates
-        if: ${{ steps.check-deployer.outputs.available == 'true' }}
+        if: ${{ env.deployer_available }}
         run: |
           curl -L \
           -X POST \
@@ -195,26 +179,27 @@ jobs:
           https://api.github.com/repos/steadybit/extension-deployer/actions/workflows/extension-restart.yml/dispatches \
           -d '{"ref":"main","inputs":{"extension":"${{ github.repository }}","version":"${{ steps.meta.outputs.version }}","revision":"${{ github.sha }}"}}'
 
-      - name: Check snyk Token
-        id: check-snyk
-        shell: bash
-        run: |
-          if [ "${{ secrets.SNYK_TOKEN }}" != '' ]; then
-            echo "available=true" >> $GITHUB_OUTPUT;
-          else
-            echo "available=false" >> $GITHUB_OUTPUT;
-          fi
+  snyk-test:
+    name: [Release] Snyk Test - If this breaks for CVEs, you need to revoke the published image (and move latest tag)!
+    uses: steadybit/extension-kit/.github/workflows/reusable-snyk-scan.yml@main
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    needs: [build-images]
+    with:
+      command: test
+      container_image: ghcr.io/${{ github.repository }}:latest
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Scan Container Image ghcr.io/${{ github.repository }}:latest
-        if: ${{ steps.check-snyk.outputs.available == 'true' && startsWith(github.ref, 'refs/tags/') }}
-        uses: snyk/actions/docker@master
-        continue-on-error: true
-        with:
-          image: ghcr.io/${{ github.repository }}:latest
-          args: --file=Dockerfile
-          command: monitor
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  snyk-monitor:
+    name: [Release] Snyk Monitor
+    uses: steadybit/extension-kit/.github/workflows/reusable-snyk-scan.yml@main
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    needs: [build-images]
+    with:
+      command: monitor
+      container_image: ghcr.io/${{ github.repository }}:latest
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
   build-packages:
     if: ${{ inputs.build_linux_packages }}

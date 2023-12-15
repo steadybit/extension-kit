@@ -1,0 +1,56 @@
+##
+#
+
+name: snyk-dependency-scan
+on:
+  workflow_call:
+    inputs:
+      container_image:
+        type: string
+        required: false
+        description: Container image to scan
+      severity_threshold:
+        type: string
+        default: critical
+        description: Severity threshold to fail the build
+      command:
+        type: string
+        default: test
+        description: Command to run
+    secrets:
+      SNYK_TOKEN:
+        required: false
+        description: Optional snyk token
+
+jobs:
+  snyk:
+    name: Snyk
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: 60
+    continue-on-error: true
+    env:
+      snyk_available: ${{ secrets.SNYK_TOKEN  != '' }}
+      container_image: ${{ inputs.container_image || 'ghcr.io/' + github.repository + ':' + github.ref_name }}
+    steps:
+      - name: Checkout repository
+        if: ${{ env.snyk_available }}
+        uses: actions/checkout@v4
+
+      - name: Snyk ${{ input.command }}
+        if: ${{ env.snyk_available }}
+        uses: snyk/actions/golang@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=${{ inputs.severity_threshold }}
+          command: ${{ inputs.command }}
+
+      - name: Snyk ${{ input.command }} docker image ${{ env.container_image }}
+        if: ${{ env.snyk_available }}
+        uses: snyk/actions/docker@master
+        with:
+          image: ${{ env.container_image }}
+          args: --file=Dockerfile --severity-threshold=${{ inputs.severity_threshold }}
+          command: ${{ inputs.command }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
