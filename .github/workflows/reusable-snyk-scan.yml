@@ -8,7 +8,11 @@ on:
       container_image:
         type: string
         required: false
-        description: Container image to scan
+        description: Container image to scan (defaults to branch name)
+      target_ref:
+        type: string
+        required: false
+        description: Target Reference for Snyk (defaults to branch name)
       severity_threshold:
         type: string
         default: critical
@@ -42,7 +46,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --severity-threshold=${{ inputs.severity_threshold }}
+          args: --severity-threshold=${{ inputs.severity_threshold }} --project-name=${{ github.repository }} --target-reference=${{ inputs.target_ref || github.ref_name }}
           command: ${{ inputs.command }}
 
       - name: Snyk ${{ inputs.command }} docker image ${{ env.container_image }}
@@ -51,7 +55,7 @@ jobs:
         uses: snyk/actions/docker@master
         with:
           image: ${{ env.container_image }}
-          args: --file=Dockerfile --severity-threshold=${{ inputs.severity_threshold }}
+          args: --file=Dockerfile --severity-threshold=${{ inputs.severity_threshold }} --project-name=${{ github.repository }} --target-reference=${{ inputs.target_ref || github.ref_name }}
           command: ${{ inputs.command }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
