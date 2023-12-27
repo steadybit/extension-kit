@@ -118,8 +118,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      deployer_available: ${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER  != '' }}
     outputs:
       image_version: ${{steps.meta.outputs.version}}
     steps:
