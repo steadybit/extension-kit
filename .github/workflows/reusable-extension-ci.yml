@@ -326,9 +326,9 @@ jobs:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   extension-restart:
+    name: "extension restart"
     uses: ./.github/workflows/extension-restart.yml
     needs:
-      - audit
       - build-images
     with:
       extension: ${{ github.repository }}
