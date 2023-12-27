@@ -335,7 +335,7 @@ jobs:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   extension-restart:
-    uses: ./.github/workflows/reusable-extension-ci.yml
+    uses: ./.github/workflows/extension-restart.yml
     needs:
       - audit
       - build-images
