@@ -30,6 +30,13 @@ jobs:
       name: ${{ matrix.environment }}
 
     steps:
+      - name: Log environment
+        run: |
+          echo "Environment: ${{ matrix.environment }}"
+          echo "Extension: ${{ inputs.extension }}"
+          echo "Version: ${{ inputs.version }}"
+          echo "Revision: ${{ inputs.revision }}"
+
       - name: Set extension name
         shell: bash
         run: echo "EXTENSION_NAME=$(echo ${{ inputs.extension }} | cut -d'/' -f2)" >> $GITHUB_ENV
