@@ -1,0 +1,111 @@
+name: Extension Restart
+
+on:
+  workflow_call:
+    inputs:
+      extension:
+        type: string
+        description: 'Extension Name, for example `steadybit/extension-container` or the short version `extension-container`'
+        required: true
+        default: 'steadybit/extension-'
+      version:
+        type: string
+        description: 'Version of the extension'
+        required: false
+        default: 'main'
+      revision:
+        type: string
+        description: 'Github SHA'
+        required: false
+        default: 'unknown'
+
+jobs:
+  extension-refresh:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [sandbox-demo, dev-demo, dev-platform, prod-demo]
+    environment:
+      name: ${{ matrix.environment }}
+
+    steps:
+      - name: Set extension name
+        shell: bash
+        run: echo "EXTENSION_NAME=$(echo ${{ github.event.inputs.extension }} | cut -d'/' -f2)" >> $GITHUB_ENV
+
+      - name: Skip production if not a version tag
+        if: ${{ !startsWith(github.event.inputs.version, 'v') && matrix.environment == 'prod-demo' }}
+        run: |
+          echo "SKIP_RESTART=true" >> $GITHUB_ENV
+          echo 'skip **${{ env.EXTENSION_NAME }}** restart for **${{ matrix.environment }}** - not a version! ❌' >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip sandbox and dev if not main branch
+        if: ${{ github.event.inputs.version != 'main' && (matrix.environment == 'sandbox-demo' || matrix.environment == 'dev-demo' || matrix.environment == 'dev-platform') }}
+        run: |
+          echo "SKIP_RESTART=true" >> $GITHUB_ENV
+          echo 'skip **${{ env.EXTENSION_NAME }}** restart for **${{ matrix.environment }}** - not main branch! ❌' >> $GITHUB_STEP_SUMMARY
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        if: env.SKIP_RESTART != 'true'
+        with:
+          role-to-assume:  ${{ vars.EKS_DEPLOYER_ROLE_ARN }}
+          role-duration-seconds: 3600
+          aws-access-key-id: ${{ secrets.EKS_DEPLOYER_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.EKS_DEPLOYER_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Create kubeconfig
+        if: env.SKIP_RESTART != 'true'
+        run: |
+          aws eks update-kubeconfig --name ${{ vars.CLUSTER_NAME }} --region ${{ vars.AWS_REGION }}
+          echo 'KUBE_CONFIG_DATA<<EOF' >> $GITHUB_ENV
+          cat ~/.kube/config | base64 >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
+
+      - name: Install kubectl
+        if: env.SKIP_RESTART != 'true'
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+
+      - name: Restart Deployment
+        if: env.SKIP_RESTART != 'true'
+        shell: bash
+        run: |
+          deployment=$(kubectl get deployment -n steadybit-outpost | (grep ${{ env.EXTENSION_NAME }} || true) | awk '{print $1}')
+          if [ -z "$deployment" ]; then
+            echo "Deployment ${{ env.EXTENSION_NAME }} not found"
+          else
+            echo "Deployment $deployment found - Restarting now"
+            kubectl label --overwrite deployment/$deployment -n steadybit-outpost com.steadybit.extension-deployer/revision=${{ github.event.inputs.revision }}
+            kubectl label --overwrite deployment/$deployment -n steadybit-outpost com.steadybit.extension-deployer/version=${{ github.event.inputs.version }}
+            kubectl rollout restart deployment/$deployment -n steadybit-outpost
+            echo "RESTARTED=deployment" >> $GITHUB_ENV
+          fi
+
+      - name: Restart Daemonset
+        if: env.SKIP_RESTART != 'true'
+        shell: bash
+        run: |
+          daemonset=$(kubectl get daemonset -n steadybit-outpost | (grep ${{ env.EXTENSION_NAME }} || true) | awk '{print $1}')
+          if [ -z "$daemonset" ]; then
+            echo "Daemonset ${{ env.EXTENSION_NAME }} not found"
+          else
+            echo "Daemonset $daemonset found - Restarting now"
+            kubectl label --overwrite daemonset/$daemonset -n steadybit-outpost com.steadybit.extension-deployer/revision=${{ github.event.inputs.revision }}
+            kubectl label --overwrite daemonset/$daemonset -n steadybit-outpost com.steadybit.extension-deployer/version=${{ github.event.inputs.version }}
+            kubectl rollout restart daemonset/$daemonset -n steadybit-outpost
+            echo "RESTARTED=daemonset" >> $GITHUB_ENV
+          fi
+
+      - name: Print summary
+        if: env.SKIP_RESTART != 'true'
+        run: |
+          if [ -z "${{ env.RESTARTED }}" ]; then
+            echo 'skip **${{ env.EXTENSION_NAME }}** restart for **${{ matrix.environment }}** - not found! ❌' >> $GITHUB_STEP_SUMMARY
+          else
+            echo '${{ env.RESTARTED }} **${{ env.EXTENSION_NAME }}** restarted in **${{ matrix.environment }}**! 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

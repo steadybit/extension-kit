@@ -333,3 +333,13 @@ jobs:
           charts_dir: charts
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+  extension-restart:
+    uses: ./.github/workflows/reusable-extension-ci.yml
+    needs:
+      - audit
+      - build-images
+    with:
+      extension: ${{ github.repository }}
+      version: ${{ steps.meta.outputs.version }}
+      revision: ${{ github.sha }}
