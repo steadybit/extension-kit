@@ -54,6 +54,9 @@ on:
       SNYK_TOKEN:
         required: false
         description: Optional snyk token
+      PAT_TOKEN_EXTENSION_DEPLOYER:
+        required: false
+        description: Deprecated - not used anymore
 
 jobs:
   audit:
