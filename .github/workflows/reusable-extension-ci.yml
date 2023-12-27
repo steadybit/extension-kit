@@ -31,10 +31,6 @@ on:
       SONAR_TOKEN:
         required: false
         description: Optional SonarCloud token
-      PAT_TOKEN_EXTENSION_DEPLOYER:
-        required: false
-        description: |
-          Optional token to trigger extension restarts
       MAVEN_GPG_PRIVATE_KEY:
         required: false
         description: |
