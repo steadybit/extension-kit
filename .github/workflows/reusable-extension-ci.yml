@@ -122,7 +122,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      image_version: ${{steps.meta.outputs.version}}
+      image_version: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -329,5 +329,5 @@ jobs:
       - build-images
     with:
       extension: ${{ github.repository }}
-      version: ${{ needs.build-images.outputs.image-version }}
+      version: ${{ needs.build-images.outputs.image_version }}
       revision: ${{ github.sha }}
