@@ -27,37 +27,40 @@ on:
         type: boolean
         required: false
         default: false
+      VERSION_BUMPER_APPID:
+        type: string
+        required: false
+        default: false
+        description: | 
+          Github app ID to use for version bump
     secrets:
       SONAR_TOKEN:
         required: false
         description: Optional SonarCloud token
       PAT_TOKEN_EXTENSION_DEPLOYER:
         required: false
-        description: |
-          Optional token to trigger extension restarts
+        description: Optional token to trigger extension restarts
       MAVEN_GPG_PRIVATE_KEY:
         required: false
-        description: |
-          GPG private key to sign packages, required if build_linux_packages is true
+        description: GPG private key to sign packages, required if build_linux_packages is true
       MAVEN_GPG_PRIVATE_KEY_PASSWORD:
         required: false
-        description: |
-          GPG private key password, required if build_linux_packages is true
+        description: GPG private key password, required if build_linux_packages is true
       PAT_TOKEN_GORELEASER:
         required: false
-        description: |
-          PAT Token, required if build_linux_packages is true
+        description: PAT Token, required if build_linux_packages is true
       STEADYBIT_ARTIFACT_SERVER_USERNAME:
         required: false
-        description: |
-          Username for artifact server, required if build_linux_packages is true
+        description: Username for artifact server, required if build_linux_packages is true
       STEADYBIT_ARTIFACT_SERVER_PASSWORD:
         required: false
-        description: |
-          Password for artifact server, required if build_linux_packages is true
+        description: Password for artifact server, required if build_linux_packages is true
       SNYK_TOKEN:
         required: false
         description: Optional snyk token
+      VERSION_BUMPER_SECRET:
+        required: false
+        description: Private key of the github app to use for version bump
 
 jobs:
   audit:
@@ -115,15 +118,16 @@ jobs:
 
   build-images:
     name: Build Docker Images
-    needs:
-      - audit
+    needs: [audit]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
       contents: read
       packages: write
-    env:
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
       deployer_available: ${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER  != '' }}
+      version_bump_available: ${{ vars.VERSION_BUMPER_APPID != '' && secrets.VERSION_BUMPER_SECRET  != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -168,17 +172,6 @@ jobs:
             VERSION=${{ steps.meta.outputs.version }}
             REVISION=${{ github.sha }}
 
-      - name: Trigger test environment updates
-        if: ${{ env.deployer_available }}
-        run: |
-          curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{secrets.PAT_TOKEN_EXTENSION_DEPLOYER}}" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/steadybit/extension-deployer/actions/workflows/extension-restart.yml/dispatches \
-          -d '{"ref":"main","inputs":{"extension":"${{ github.repository }}","version":"${{ steps.meta.outputs.version }}","revision":"${{ github.sha }}"}}'
-
   snyk-test:
     name: "Snyk Test ${{ startsWith(github.ref, 'refs/tags/') && '- If this breaks for CVEs, you need to revoke the published image (and move latest tag)!' || '' }}"
     uses: steadybit/extension-kit/.github/workflows/reusable-snyk-scan.yml@main
@@ -204,8 +197,7 @@ jobs:
   build-packages:
     if: ${{ inputs.build_linux_packages }}
     name: Build Linux Packages
-    needs:
-      - audit
+    needs: [audit]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -263,8 +255,7 @@ jobs:
   test-helm-charts:
     name: "Test Helm Charts"
     runs-on: ubuntu-latest
-    needs:
-      - audit
+    needs: [audit]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -297,11 +288,40 @@ jobs:
       - name: Run chart-testing (lint)
         run: make chartlint
 
+  bump-chart-version:
+    name: Bump Chart Patch Version on main branch
+    needs: [build-images]
+    if: needs.build-images.outputs.version_bump_available && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ inputs.VERSION_BUMPER_APPID }}
+          private-key: ${{ secrets.VERSION_BUMPER_SECRET }}
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      # this commit will effectively cause another run of the workflow which then actually performs the helm chart release
+      - run: |
+          npm install -g semver
+          make chart-bump-version APP_VERSION="${{ needs.build-images.outputs.version }}"
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+          git commit -am "chore: update helm chart version"
+          git push
+
   release-helm-chart:
     name: "Release Helm Chart"
     runs-on: ubuntu-latest
-    needs:
-      - test-helm-charts
+    needs: [test-helm-charts]
     if: github.ref == 'refs/heads/main'
 
     permissions:
@@ -333,3 +353,19 @@ jobs:
           charts_dir: charts
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+  trigger-test-environment-updates:
+    name: Trigger test environment updates
+    if: needs.build-images.outputs.deployer_available
+    needs: [build-images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - run: |
+          curl -L \
+          -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${{secrets.PAT_TOKEN_EXTENSION_DEPLOYER}}" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          https://api.github.com/repos/steadybit/extension-deployer/actions/workflows/extension-restart.yml/dispatches \
+          -d '{"ref":"main","inputs":{"extension":"${{ github.repository }}","version":"${{ needs.build-images.outputs.version }}","revision":"${{ github.sha }}"}}'
