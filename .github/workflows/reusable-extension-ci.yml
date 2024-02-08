@@ -367,5 +367,5 @@ jobs:
           ref: main
           workflow: extension-restart.yml
           repo: steadybit/extension-deployer
-          inputs: '{"extension":"${{ github.repository }}","version":"${{ needs.build-images.outputs.version }}","revision":"${{ github.sha }}"}}'
+          inputs: '{"extension":"${{ github.repository }}","version":"${{ needs.build-images.outputs.version }}","revision":"${{ github.sha }}"}'
           token: ${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER }}
