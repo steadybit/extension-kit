@@ -5,6 +5,7 @@
 package exthttp
 
 import (
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -128,6 +129,81 @@ func TestIfNoneMatchHandler(t *testing.T) {
 			if etag := rr.Header().Get("ETag"); etag != tt.wantedEtagResponseHeader {
 				t.Errorf("handler returned wrong etag header: got %v want %v", etag, tt.wantedEtagResponseHeader)
 			}
+		})
+	}
+}
+
+func TestPanicRecovery(t *testing.T) {
+	tests := []struct {
+		name             string
+		panic            bool
+		wantedStatusCode int
+	}{
+		{
+			name:             "should return 200",
+			panic:            false,
+			wantedStatusCode: 200,
+		},
+		{
+			name:             "should return 500",
+			panic:            true,
+			wantedStatusCode: 500,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest("GET", "/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+
+			PanicRecovery(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tt.panic {
+					panic("test")
+				}
+				w.WriteHeader(200)
+			})).ServeHTTP(rr, req)
+
+			if status := rr.Code; status != tt.wantedStatusCode {
+				t.Errorf("handler returned wrong status code: got %v want %v", status, tt.wantedStatusCode)
+			}
+
+		})
+	}
+}
+
+func TestWriteBody(t *testing.T) {
+	tests := []struct {
+		name         string
+		responseBody any
+		wantedStatus int
+		wantedBody   string
+	}{
+		{
+			name: "should write body",
+			responseBody: map[string]string{
+				"key": "value",
+			},
+			wantedStatus: 200,
+			wantedBody:   "{\"key\":\"value\"}\n",
+		},
+		{
+			name:         "should fail writing body",
+			responseBody: make(chan int),
+			wantedStatus: 500,
+			wantedBody:   "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+
+			WriteBody(rr, tt.responseBody)
+
+			assert.Equal(t, tt.wantedBody, rr.Body.String())
+			assert.Equal(t, tt.wantedStatus, rr.Code)
+			assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 		})
 	}
 }

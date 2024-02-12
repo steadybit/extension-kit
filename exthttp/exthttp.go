@@ -126,11 +126,12 @@ func WriteError(w http.ResponseWriter, err extension_kit.ExtensionError) {
 // WriteBody writes the given value as the HTTP response body as JSON with status code 200.
 func WriteBody(w http.ResponseWriter, response any) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	encodeErr := json.NewEncoder(w).Encode(response)
-	if encodeErr != nil {
-		log.Err(encodeErr).Msgf("Failed to response body")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Err(err).Msgf("Failed to response body")
+		w.WriteHeader(500)
+		return
 	}
+	w.WriteHeader(200)
 }
 
 func IfNoneMatchHandler(etagFn func() string, delegate Handler) Handler {
