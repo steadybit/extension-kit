@@ -18,9 +18,6 @@ func logCapsInformation(level zerolog.Level) {
 }
 
 func logUnameInformation(level zerolog.Level) {
-	var uts syscall.Utsname
-	syscall.Uname(&uts)
-
 	log.WithLevel(level).Msg(UnameInformation())
 }
 
