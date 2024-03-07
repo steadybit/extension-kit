@@ -18,3 +18,7 @@ func LogRuntimeInformation(level zerolog.Level) {
 	logUnameInformation(level)
 	logCapsInformation(level)
 }
+
+func GetUnameInformation() string {
+	return UnameInformation()
+}

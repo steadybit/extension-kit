@@ -21,8 +21,14 @@ func logUnameInformation(level zerolog.Level) {
 	var uts syscall.Utsname
 	syscall.Uname(&uts)
 
-	log.WithLevel(level).Msgf(
-		"OS information: sysname=%s; release=%s; version=%s; machine=%s",
+	log.WithLevel(level).Msg(UnameInformation())
+}
+
+func UnameInformation() string {
+	var uts syscall.Utsname
+	syscall.Uname(&uts)
+
+	return fmt.Sprintf("OS information: sysname=%s; release=%s; version=%s; machine=%s",
 		charsToString(uts.Sysname[:]),
 		charsToString(uts.Release[:]),
 		charsToString(uts.Version[:]),

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.12
+
+- func to get UNameInformation
+
 ## 1.8.11
 
 - prevent concurrent map writes in `extcmd`
