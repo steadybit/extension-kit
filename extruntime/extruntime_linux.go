@@ -28,12 +28,7 @@ func UnameInformation() string {
 	var uts syscall.Utsname
 	syscall.Uname(&uts)
 
-	return fmt.Sprintf("OS information: sysname=%s; release=%s; version=%s; machine=%s",
-		charsToString(uts.Sysname[:]),
-		charsToString(uts.Release[:]),
-		charsToString(uts.Version[:]),
-		charsToString(uts.Machine[:]),
-	)
+	return "OS information: sysname=" + charsToString(uts.Sysname[:]) + "; release=" + charsToString(uts.Release[:]) + "; version=" + charsToString(uts.Version[:]) + "; machine=" + charsToString(uts.Machine[:])
 }
 
 func charsToString(ca []int8) string {
