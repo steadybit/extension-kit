@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.13
+
+- add extruntime.getHostname to provide hostname and fqdn of host
+
 ## 1.8.12
 
 - func to get UNameInformation
