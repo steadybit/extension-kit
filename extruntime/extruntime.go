@@ -1,6 +1,8 @@
 package extruntime
 
 import (
+	"context"
+	"github.com/elastic/go-sysinfo"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"
@@ -21,4 +23,15 @@ func LogRuntimeInformation(level zerolog.Level) {
 
 func GetUnameInformation() string {
 	return UnameInformation()
+}
+
+func GetHostname() (hostname, fqdn string, err error) {
+	hostname = "unknown"
+	fqdn = "unknown"
+
+	hostname, err = os.Hostname()
+	if host, err2 := sysinfo.Host(); err2 != nil {
+		fqdn, err = host.FQDNWithContext(context.Background())
+	}
+	return
 }
