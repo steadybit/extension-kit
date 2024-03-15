@@ -362,7 +362,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: benc-uk/workflow-dispatch@v121
+      - uses: benc-uk/workflow-dispatch@v1
         with:
           ref: main
           workflow: extension-restart.yml
