@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.14
+
+- fix: host fqdn is not properly read
+
 ## 1.8.13
 
 - add extruntime.getHostname to provide hostname and fqdn of host

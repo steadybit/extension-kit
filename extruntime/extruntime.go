@@ -30,7 +30,7 @@ func GetHostname() (hostname, fqdn string, err error) {
 	fqdn = "unknown"
 
 	hostname, err = os.Hostname()
-	if host, err2 := sysinfo.Host(); err2 != nil {
+	if host, err2 := sysinfo.Host(); err2 == nil {
 		fqdn, err = host.FQDNWithContext(context.Background())
 	}
 	return
