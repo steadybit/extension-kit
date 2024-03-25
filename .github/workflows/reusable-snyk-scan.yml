@@ -15,7 +15,7 @@ on:
         description: Target Reference for Snyk (defaults to branch name)
       severity_threshold:
         type: string
-        default: critical
+        default: high
         description: Severity threshold to fail the build
       command:
         type: string
