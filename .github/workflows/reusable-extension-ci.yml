@@ -27,6 +27,10 @@ on:
         type: boolean
         required: false
         default: false
+      go_version:
+        type: string
+        required: false
+        default: '1.21'
       VERSION_BUMPER_APPID:
         type: string
         required: false
@@ -82,7 +86,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: ${{ inputs.go_version }}
 
       - name: Enable KVM group perms
         if: ${{ inputs.use_kvm }}
@@ -244,7 +248,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: ${{ inputs.go_version }}
 
       - name: Export GPG key
         run: |
