@@ -394,7 +394,7 @@ jobs:
 
   trigger-test-environment-updates:
     name: Trigger test environment updates
-    if: github.ref == 'refs/heads/main' && needs.build-images.outputs.deployer_available
+    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) && needs.build-images.outputs.deployer_available
     needs: [build-images]
     runs-on: ubuntu-latest
     timeout-minutes: 60
