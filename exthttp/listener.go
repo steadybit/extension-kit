@@ -1,3 +1,7 @@
+/*
+ * Copyright 2024 steadybit GmbH. All rights reserved.
+ */
+
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2023 Steadybit GmbH
 
@@ -6,6 +10,7 @@ package exthttp
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
@@ -15,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 type ListenSpecification struct {
@@ -24,6 +30,11 @@ type ListenSpecification struct {
 	TlsServerKey  string   `json:"tlsServerKey" split_words:"true" required:"false"`
 	TlsClientCas  []string `json:"tlsClientCas" split_words:"true" required:"false"`
 }
+
+var (
+	wrapper   *httpServerWrapper
+	serveCond = sync.NewCond(&sync.Mutex{})
+)
 
 func (spec *ListenSpecification) parseConfigurationFromEnvironment() {
 	err := envconfig.Process("steadybit_extension", spec)
@@ -60,15 +71,14 @@ type ListenOpts struct {
 	// Port Default port to bind to. Can be overridden through the environment variable STEADYBIT_EXTENSION_PORT.
 	Port int
 }
+type httpServerWrapper struct {
+	serve  func() error
+	server *http.Server
+}
 
 func Listen(opts ListenOpts) {
-	_, start, err := listen(opts)
-	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to start extension server")
-	}
-
-	err = start()
-	if err != nil {
+	err := listen(opts)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal().Err(err).Msgf("Failed to start extension server")
 	}
 }
@@ -79,12 +89,19 @@ func IsUnixSocketEnabled() bool {
 	return spec.UnixSocket != ""
 }
 
-func listen(opts ListenOpts) (*http.Server, func() error, error) {
+func listen(opts ListenOpts) error {
+	success := false
+	serveCond.L.Lock()
+	defer func() {
+		if !success {
+			serveCond.L.Unlock()
+		}
+	}()
+
 	spec := ListenSpecification{}
 	spec.parseConfigurationFromEnvironment()
-	err := spec.validateSpecification()
-	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to validate HTTP server configuration.")
+	if err := spec.validateSpecification(); err != nil {
+		return fmt.Errorf("failed to validate listen specification: %w", err)
 	}
 
 	port := opts.Port
@@ -92,13 +109,41 @@ func listen(opts ListenOpts) (*http.Server, func() error, error) {
 		port = spec.Port
 	}
 
+	var err error
 	if spec.UnixSocket != "" {
-		return prepareUnixSocketServer(spec.UnixSocket)
+		wrapper, err = prepareUnixSocketServer(spec.UnixSocket)
 	} else if spec.isTlsEnabled() {
-		return prepareHttpsServer(port, spec)
+		wrapper, err = prepareHttpsServer(port, spec)
 	} else {
-		return prepareHttpServer(port)
+		wrapper, err = prepareHttpServer(port)
 	}
+	if err != nil {
+		return err
+	}
+
+	serveCond.Broadcast()
+	serveCond.L.Unlock()
+	success = true
+	if err = wrapper.serve(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
+}
+
+func WaitForServe() {
+	serveCond.L.Lock()
+	defer serveCond.L.Unlock()
+	serveCond.Wait()
+}
+
+func StopListen() {
+	if wrapper == nil || wrapper.server == nil {
+		return
+	}
+	if err := wrapper.server.Close(); err != nil {
+		log.Error().Err(err).Msgf("Failed to stop extension server")
+	}
+	wrapper = nil
 }
 
 type forwardToZeroLogWriter struct {
@@ -116,29 +161,30 @@ func (fw *forwardToZeroLogWriter) Write(p []byte) (n int, err error) {
 	return len([]byte(trimmed)), nil
 }
 
-func prepareHttpServer(port int) (*http.Server, func() error, error) {
+func prepareHttpServer(port int) (*httpServerWrapper, error) {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, err
+	}
+
 	server := &http.Server{
-		Addr:     fmt.Sprintf(":%d", port),
 		ErrorLog: stdLog.New(&forwardToZeroLogWriter{}, "", 0),
 	}
 
-	start := func() error {
-		log.Info().Msgf("Starting extension http server on port %d", port)
-		return server.ListenAndServe()
-	}
-
-	return server, start, nil
+	log.Info().Msgf("Starting extension http server on port %d", port)
+	return &httpServerWrapper{
+		serve: func() error {
+			return server.Serve(listener)
+		},
+		server: server,
+	}, nil
 }
 
-func prepareUnixSocketServer(path string) (*http.Server, func() error, error) {
-	server := &http.Server{
-		ErrorLog: stdLog.New(&forwardToZeroLogWriter{}, "", 0),
-	}
-
+func prepareUnixSocketServer(path string) (*httpServerWrapper, error) {
 	if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
 		err = os.MkdirAll(filepath.Dir(path), 0755)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory for unix socket: %w", err)
+			return nil, fmt.Errorf("failed to create directory for unix socket: %w", err)
 		}
 	} else {
 		_ = os.Remove(path)
@@ -146,25 +192,32 @@ func prepareUnixSocketServer(path string) (*http.Server, func() error, error) {
 
 	unixListener, err := net.Listen("unix", path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed listen on unix socket: %w", err)
+		return nil, fmt.Errorf("failed listen on unix socket: %w", err)
 	}
 
-	return server, func() error {
-		log.Info().Msgf("Starting extension http server on unix domain socket (%s)", path)
-		return server.Serve(unixListener)
+	server := &http.Server{
+		ErrorLog: stdLog.New(&forwardToZeroLogWriter{}, "", 0),
+	}
+
+	return &httpServerWrapper{
+		serve: func() error {
+			log.Info().Msgf("Starting extension http server on unix domain socket (%s)", path)
+			return server.Serve(unixListener)
+		},
+		server: server,
 	}, nil
 }
 
-func prepareHttpsServer(port int, spec ListenSpecification) (*http.Server, func() error, error) {
+func prepareHttpsServer(port int, spec ListenSpecification) (*httpServerWrapper, error) {
 	certReloader := NewCertReloader(spec.TlsServerCert, spec.TlsServerKey)
 
 	if _, err := certReloader.GetCertificate(nil); err != nil {
-		return nil, nil, fmt.Errorf("failed to load TLS certificate: %w", err)
+		return nil, fmt.Errorf("failed to load TLS certificate: %w", err)
 	}
 
 	clientCAs, err := loadCertPool(spec.TlsClientCas)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load TLS client CA certificates: %w", err)
+		return nil, fmt.Errorf("failed to load TLS client CA certificates: %w", err)
 	}
 
 	tlsConfig := tls.Config{
@@ -173,14 +226,21 @@ func prepareHttpsServer(port int, spec ListenSpecification) (*http.Server, func(
 		ClientCAs:      clientCAs,
 	}
 
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, err
+	}
+
 	server := &http.Server{
-		Addr:      fmt.Sprintf(":%d", port),
 		TLSConfig: &tlsConfig,
 		ErrorLog:  stdLog.New(&forwardToZeroLogWriter{}, "", 0),
 	}
-	return server, func() error {
-		log.Info().Msgf("Starting extension https server on port %d (ClientAuth: %s)", port, spec.getClientAuthType())
-		return server.ListenAndServeTLS("", "")
+	return &httpServerWrapper{
+		serve: func() error {
+			log.Info().Msgf("Starting extension https server on port %d (ClientAuth: %s)", port, spec.getClientAuthType())
+			return server.ServeTLS(listener, "", "")
+		},
+		server: server,
 	}, nil
 }
 

@@ -1,3 +1,7 @@
+/*
+ * Copyright 2024 steadybit GmbH. All rights reserved.
+ */
+
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2023 Steadybit GmbH
 
@@ -10,6 +14,7 @@ import (
 	"fmt"
 	"github.com/madflojo/testcerts"
 	"github.com/phayes/freeport"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net"
 	"net/http"
@@ -21,7 +26,7 @@ import (
 func TestValidateSpecificationSuccessHttp(t *testing.T) {
 	spec := ListenSpecification{}
 	err := spec.validateSpecification()
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestValidateSpecificationSuccessTls(t *testing.T) {
@@ -30,7 +35,7 @@ func TestValidateSpecificationSuccessTls(t *testing.T) {
 		TlsServerKey:  "key",
 	}
 	err := spec.validateSpecification()
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestValidateSpecificationSuccessMTls(t *testing.T) {
@@ -40,7 +45,7 @@ func TestValidateSpecificationSuccessMTls(t *testing.T) {
 		TlsClientCas:  []string{"ca"},
 	}
 	err := spec.validateSpecification()
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestValidateSpecificationMissingCert(t *testing.T) {
@@ -48,7 +53,7 @@ func TestValidateSpecificationMissingCert(t *testing.T) {
 		TlsClientCas: []string{"ca"},
 	}
 	err := spec.validateSpecification()
-	require.ErrorContains(t, err, "certificate")
+	assert.ErrorContains(t, err, "certificate")
 }
 
 func TestValidateSpecificationMissingKey(t *testing.T) {
@@ -57,23 +62,20 @@ func TestValidateSpecificationMissingKey(t *testing.T) {
 		TlsClientCas:  []string{"ca"},
 	}
 	err := spec.validateSpecification()
-	require.ErrorContains(t, err, "key")
+	assert.ErrorContains(t, err, "key")
 }
 
 func TestStartHttpServer(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
-	server, start, err := prepareHttpServer(port)
-	require.NoError(t, err)
-
-	go start()
-	defer server.Close()
+	go Listen(ListenOpts{Port: port})
+	WaitForServe()
+	defer StopListen()
 
 	resp, err := http.Get(fmt.Sprintf("http://localhost:%d", port))
-
-	require.NoError(t, err)
-	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestStartHttpsServer(t *testing.T) {
@@ -86,14 +88,11 @@ func TestStartHttpsServer(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
-	server, start, err := prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: cert.Name(),
-		TlsServerKey:  key.Name(),
-	})
-	require.NoError(t, err)
-
-	go start()
-	defer server.Close()
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", key.Name())
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", cert.Name())
+	go Listen(ListenOpts{Port: port})
+	WaitForServe()
+	defer StopListen()
 
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(certs.PublicKey())
@@ -106,7 +105,7 @@ func TestStartHttpsServer(t *testing.T) {
 		},
 	}
 	_, err = client.Get(fmt.Sprintf("https://localhost:%d", port))
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestStartHttpsServerMustFailWhenCertificateCannotBeFound(t *testing.T) {
@@ -116,25 +115,25 @@ func TestStartHttpsServerMustFailWhenCertificateCannotBeFound(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
-	_, _, err = prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: filepath.Join(t.TempDir(), "unknown.pem"),
-		TlsServerKey:  key,
-	})
-	require.ErrorContains(t, err, "no such file or directory")
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", key)
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", filepath.Join(t.TempDir(), "unknown.pem"))
+
+	err = listen(ListenOpts{Port: port})
+	assert.ErrorContains(t, err, "no such file or directory")
 }
 
 func TestStartHttpsServerMustFailWhenKeyCannotBeFound(t *testing.T) {
-	_, key, err := testcerts.GenerateCertsToTempFile(t.TempDir())
+	cert, _, err := testcerts.GenerateCertsToTempFile(t.TempDir())
 	require.NoError(t, err)
 
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
-	_, _, err = prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: key,
-		TlsServerKey:  filepath.Join(t.TempDir(), "unknown.pem"),
-	})
-	require.ErrorContains(t, err, "no such file or directory")
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", filepath.Join(t.TempDir(), "unknown.pem"))
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", cert)
+	err = listen(ListenOpts{Port: port})
+
+	assert.ErrorContains(t, err, "no such file or directory")
 }
 
 func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *testing.T) {
@@ -150,18 +149,15 @@ func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *t
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
-	server, start, err := prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: serverCert.Name(),
-		TlsServerKey:  serverKey.Name(),
-		TlsClientCas:  []string{caCerts.Name()},
-	})
-	require.NoError(t, err)
-
-	go start()
-	defer server.Close()
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", serverKey.Name())
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", serverCert.Name())
+	t.Setenv("STEADYBIT_EXTENSION_TLS_CLIENT_CAS", caCerts.Name())
+	go Listen(ListenOpts{Port: port})
+	WaitForServe()
+	defer StopListen()
 
 	_, err = http.Get(fmt.Sprintf("https://localhost:%d", port))
-	require.ErrorContains(t, err, "failed to verify certificate")
+	assert.ErrorContains(t, err, "failed to verify certificate")
 }
 
 func TestStartHttpsServerEnforcingMutualTls(t *testing.T) {
@@ -181,15 +177,12 @@ func TestStartHttpsServerEnforcingMutualTls(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
-	server, start, err := prepareHttpsServer(port, ListenSpecification{
-		TlsServerCert: serverCert.Name(),
-		TlsServerKey:  serverKey.Name(),
-		TlsClientCas:  []string{clientCertDir},
-	})
-	require.NoError(t, err)
-
-	go start()
-	defer server.Close()
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", serverKey.Name())
+	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", serverCert.Name())
+	t.Setenv("STEADYBIT_EXTENSION_TLS_CLIENT_CAS", clientCertDir)
+	go Listen(ListenOpts{Port: port})
+	WaitForServe()
+	defer StopListen()
 
 	clientCertificate, err := tls.X509KeyPair(clientPair.PublicKey(), clientPair.PrivateKey())
 	require.NoError(t, err)
@@ -207,18 +200,17 @@ func TestStartHttpsServerEnforcingMutualTls(t *testing.T) {
 	}
 
 	r, err := client.Get(fmt.Sprintf("https://localhost:%d", port))
-	require.NoError(t, err)
-	require.Equal(t, http.StatusNotFound, r.StatusCode)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, r.StatusCode)
 }
 
 func TestStartHttpServerUsingUnixSocket(t *testing.T) {
 	sock := filepath.Join(t.TempDir(), "sock")
 
-	server, start, err := prepareUnixSocketServer(sock)
-	require.NoError(t, err)
-
-	go start()
-	defer server.Close()
+	t.Setenv("STEADYBIT_EXTENSION_UNIX_SOCKET", sock)
+	go Listen(ListenOpts{})
+	WaitForServe()
+	defer StopListen()
 
 	client := http.Client{
 		Transport: &http.Transport{
@@ -229,7 +221,6 @@ func TestStartHttpServerUsingUnixSocket(t *testing.T) {
 	}
 
 	resp, err := client.Get("http://localhost")
-
-	require.NoError(t, err)
-	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }

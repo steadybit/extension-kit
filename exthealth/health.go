@@ -1,9 +1,14 @@
+/*
+ * Copyright 2024 steadybit GmbH. All rights reserved.
+ */
+
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2023 Steadybit GmbH
 
 package exthealth
 
 import (
+	"errors"
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
@@ -14,6 +19,7 @@ import (
 
 var (
 	isReady int32 = 1
+	server  *http.Server
 )
 
 type HealthSpecification struct {
@@ -66,11 +72,18 @@ func StartProbes(port int) {
 	addReadinessProbe(serverMux.Handle)
 	go func() {
 		log.Info().Msgf("Starting probes server on port %d, ready: %t", healthPort, atomic.LoadInt32(&isReady) == 1)
-		err := http.ListenAndServe(fmt.Sprintf(":%d", healthPort), serverMux)
-		if err != nil {
+		server = &http.Server{Addr: fmt.Sprintf(":%d", healthPort), Handler: serverMux}
+
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msgf("Failed to start probes server")
 		}
 	}()
+}
+
+func StopProbes() {
+	if server != nil {
+		_ = server.Close()
+	}
 }
 
 // SetReady sets the readiness state of the service. If the service is not ready the readiness probe will report an error.
