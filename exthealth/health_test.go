@@ -72,4 +72,16 @@ func TestServerProbesUsingUnixSocket(t *testing.T) {
 	res, err = client.Get("http://localhost/health/readiness")
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	SetAlive(false)
+
+	res, err = client.Get("http://localhost/health/liveness")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+	SetAlive(true)
+
+	res, err = client.Get("http://localhost/health/liveness")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, res.StatusCode)
 }

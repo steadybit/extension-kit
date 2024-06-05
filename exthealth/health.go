@@ -19,6 +19,7 @@ import (
 
 var (
 	isReady int32 = 1
+	isAlive int32 = 1
 	server  *http.Server
 )
 
@@ -33,10 +34,14 @@ func (spec *HealthSpecification) parseConfigurationFromEnvironment() {
 	}
 }
 
-// addLivenessProbe registers an HTTP handler for the liveness probe. The liveness probe reports HTTP 200 as soon as the HTTP server is up and running.
+// addLivenessProbe registers an HTTP handler for the liveness probe. The liveness probe reports an error (HTTP 503) when the SetAlive function is called with false. Default readiness state is true.
 func addLivenessProbe(registerFn func(string, http.Handler)) {
 	registerFn("/health/liveness", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+		if atomic.LoadInt32(&isAlive) == 1 {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 	}))
 }
 
@@ -93,5 +98,15 @@ func SetReady(ready bool) {
 		atomic.StoreInt32(&isReady, 1)
 	} else {
 		atomic.StoreInt32(&isReady, 0)
+	}
+}
+
+// SetAlive sets the liveness state of the service. If the service is not alive the liveness probe will report an error and the container should restart.
+func SetAlive(alive bool) {
+	log.Info().Msgf("Update liveness probe - alive: %t", alive)
+	if alive {
+		atomic.StoreInt32(&isAlive, 1)
+	} else {
+		atomic.StoreInt32(&isAlive, 0)
 	}
 }
