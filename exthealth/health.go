@@ -103,10 +103,13 @@ func SetReady(ready bool) {
 
 // SetAlive sets the liveness state of the service. If the service is not alive the liveness probe will report an error and the container should restart.
 func SetAlive(alive bool) {
-	log.Info().Msgf("Update liveness probe - alive: %t", alive)
-	if alive {
-		atomic.StoreInt32(&isAlive, 1)
-	} else {
-		atomic.StoreInt32(&isAlive, 0)
+	isAliveInt := atomic.LoadInt32(&isAlive)
+	if isAliveInt == 1 && !alive || isAliveInt == 0 && alive {
+		log.Info().Msgf("Update liveness probe - alive: %t", alive)
+		if alive {
+			atomic.StoreInt32(&isAlive, 1)
+		} else {
+			atomic.StoreInt32(&isAlive, 0)
+		}
 	}
 }
