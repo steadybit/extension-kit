@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2022 Steadybit GmbH
+// SPDX-FileCopyrightText: 2024 Steadybit GmbH
 
 // Package extutil contains a variety of util functions that were identified as common code duplication.
 // More specialized packages exist for groups of use cases (extlogging and exthttp) for example.
@@ -8,6 +8,7 @@ package extutil
 import (
 	"fmt"
 	"github.com/steadybit/extension-kit/extconversion"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -170,16 +171,36 @@ func ToUInt(val interface{}) uint {
 	}
 }
 
+// MustHaveValue panics if the given key is not present in the map or the value is nil or empty.
+func MustHaveValue[T any, K comparable](m map[K]T, key K) T {
+	val, ok := m[key]
+	if !ok {
+		panic(fmt.Sprintf("missing value for '%v'", key))
+	}
+
+	kind := reflect.TypeOf(val).Kind()
+	if kind == reflect.Array || kind == reflect.Chan || kind == reflect.Map || kind == reflect.Slice || kind == reflect.String {
+		if reflect.ValueOf(val).Len() == 0 {
+			panic(fmt.Sprintf("value for '%v' is empty ", key))
+		}
+	} else if kind == reflect.Ptr {
+		if reflect.ValueOf(val).IsNil() {
+			panic(fmt.Sprintf("value for '%v' is nil ", key))
+		}
+	}
+	return val
+}
+
 func ToStringArray(s interface{}) []string {
 	if s == nil {
 		return nil
 	}
 
-	strings := make([]string, len(s.([]interface{})))
+	tokens := make([]string, len(s.([]interface{})))
 	for i, v := range s.([]interface{}) {
-		strings[i] = v.(string)
+		tokens[i] = v.(string)
 	}
-	return strings
+	return tokens
 }
 
 func JsonMangle[T any](in T) T {
