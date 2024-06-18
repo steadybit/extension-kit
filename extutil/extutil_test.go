@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2024 Steadybit GmbH
+
 package extutil
 
 import (
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -236,4 +240,26 @@ func TestMaskString(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMustHaveValue(t *testing.T) {
+	assert.Equal(t, 0, MustHaveValue(map[string]int{"key": 0}, "key"))
+	assert.Panics(t, func() {
+		MustHaveValue(map[string]int{"key": 0}, "missing")
+	})
+
+	assert.Equal(t, "value", MustHaveValue(map[string]string{"key": "value"}, "key"))
+	assert.Panics(t, func() {
+		MustHaveValue(map[string]string{"key": "value"}, "missing")
+	})
+
+	assert.Equal(t, Ptr("value"), MustHaveValue(map[string]*string{"key": Ptr("value")}, "key"))
+	assert.Panics(t, func() {
+		MustHaveValue(map[string]*string{"empty": nil}, "empty")
+	})
+
+	assert.Equal(t, []string{"value"}, MustHaveValue(map[string][]string{"key": {"value"}}, "key"))
+	assert.Panics(t, func() {
+		MustHaveValue(map[string][]string{"empty": {}}, "empty")
+	})
 }
