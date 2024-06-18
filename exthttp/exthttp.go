@@ -8,10 +8,12 @@ package exthttp
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
 	"github.com/steadybit/extension-kit"
+	"github.com/steadybit/extension-kit/extutil"
 	"io"
 	"net/http"
 	"runtime/debug"
@@ -39,7 +41,9 @@ func PanicRecovery(next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				log.Error().Msgf("Panic: %v\n %s", err, string(debug.Stack()))
-				WriteError(w, extension_kit.ToError("Internal Server Error", nil))
+				response := extension_kit.ToError("Internal Server Error", nil)
+				response.Detail = extutil.Ptr(fmt.Sprintf("Panic: %v", err))
+				WriteError(w, response)
 			}
 		}()
 		next.ServeHTTP(w, r)
