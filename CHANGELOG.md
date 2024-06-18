@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.15
+
+- feat: add error details to recovery handler
+- feat: add MustHaveValue helper 
+
 ## 1.8.14
 
 - fix: host fqdn is not properly read
