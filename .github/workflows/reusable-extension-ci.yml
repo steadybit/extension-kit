@@ -197,9 +197,6 @@ jobs:
 
       - name: "[release] Snyk monitor docker image release candidate"
         # we need to run monitor before test to be able to ignore issues
-        # unfortunately, the target-reference is not splitting up the project into two versions, like it is doing with maven.
-        # So we override the latest release monitor with the release-candidate monitor. We accept the risk, as we usually fix and release immediately which then sets up the correct monitor again.
-        # (https://docs.snyk.io/snyk-cli/scan-and-maintain-projects-using-the-cli/group-projects-by-branch-or-version-for-monitoring)
         if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
         uses: snyk/actions/docker@master
         with:
