@@ -31,6 +31,12 @@ on:
         type: string
         required: false
         default: '1.21'
+      packages_with_index:
+        type: boolean
+        required: false
+        default: false
+        description: |
+          Can be used for private repos. The helm chart will be uploaded to the gh-pages branch
       VERSION_BUMPER_APPID:
         type: string
         required: false
@@ -400,6 +406,7 @@ jobs:
         with:
           charts_dir: charts
           mark_as_latest: false
+          packages_with_index: ${{ inputs.packages_with_index }}
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
