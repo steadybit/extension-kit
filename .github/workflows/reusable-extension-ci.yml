@@ -207,7 +207,7 @@ jobs:
         uses: snyk/actions/docker@master
         with:
           image: ghcr.io/${{ github.repository }}:rc
-          args: --file=Dockerfile --severity-threshold=high --project-name=${{ github.repository }} --target-reference=${{ github.ref_name }} --username=${{ github.actor }} --password=${{ secrets.GITHUB_TOKEN }}
+          args: --file=Dockerfile --severity-threshold=high --project-name=${{ github.repository }} --target-reference=release-candidate --username=${{ github.actor }} --password=${{ secrets.GITHUB_TOKEN }}
           command: monitor
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -217,7 +217,7 @@ jobs:
         uses: snyk/actions/docker@master
         with:
           image: ghcr.io/${{ github.repository }}:rc
-          args: --file=Dockerfile --severity-threshold=high --project-name=${{ github.repository }} --target-reference=${{ github.ref_name }}
+          args: --file=Dockerfile --severity-threshold=high --project-name=${{ github.repository }} --target-reference=release-candidate
           command: test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
