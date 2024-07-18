@@ -212,15 +212,16 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: "[release] Snyk test docker image release candidate"
-        if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
-        uses: snyk/actions/docker@master
-        with:
-          image: ghcr.io/${{ github.repository }}:rc
-          args: --file=Dockerfile --severity-threshold=high --project-name=${{ github.repository }} --target-reference=release-candidate
-          command: test
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+# Temporary disabled - http://support.snyk.io/hc/requests/84906 - ignoring issues via ui is not working
+#      - name: "[release] Snyk test docker image release candidate"
+#        if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
+#        uses: snyk/actions/docker@master
+#        with:
+#          image: ghcr.io/${{ github.repository }}:rc
+#          args: --file=Dockerfile --severity-threshold=high --project-name=${{ github.repository }} --target-reference=release-candidate
+#          command: test
+#        env:
+#          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
