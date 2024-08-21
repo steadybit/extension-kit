@@ -371,8 +371,13 @@ jobs:
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
         run: |
-          gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find ./dist -name '*.deb' -type f -printf '%P')
-          gcloud artifacts apt upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find ./dist -name '*.rpm' -type f -printf '%P')   
+          ls ./dist
+          DEB_FILE=$(find ./dist -name '*.deb' -type f -printf '%P')
+          RPM_FILE=$(find ./dist -name '*.rpm' -type f -printf '%P')
+          echo $DEB_FILE
+          echo $RPM_FILE
+          gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$DEB_FILE
+          gcloud artifacts apt upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$RPM_FILE  
 
   test-helm-charts:
     name: "Test Helm Charts"
