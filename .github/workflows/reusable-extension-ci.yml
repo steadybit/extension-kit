@@ -368,16 +368,29 @@ jobs:
           service_account: ${{ inputs.gcp_project_sa }}
           workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
 
+      - name: Finding files and store to output
+        id: finding-packages
+        run: |
+          echo "::set-output name=DEBFILES::$(find ./dist -name '*.deb' -print)"
+          echo "::set-output name=RPMFILES::$(find ./dist -name '*.rpm' -print)"
+
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
         run: |
-          ls ./dist
-          DEB_FILE=$(find ./dist -name '*.deb' -type f -printf '%P')
-          RPM_FILE=$(find ./dist -name '*.rpm' -type f -printf '%P')
-          echo $DEB_FILE
-          echo $RPM_FILE
-          gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$DEB_FILE
-          gcloud artifacts apt upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$RPM_FILE  
+          IFS="," read -a myarray <<< ${{ steps.finding-packages.outputs.DEBFILES }}
+          for i in "${myarray[@]}"; do
+            gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=${i}
+            file_path=$(dirname "${i}")
+            file_name=$(basename "${i}")
+            cd file_path
+          done
+          IFS="," read -a myarray <<< ${{ steps.finding-packages.outputs.RPMFILES }}
+          for i in "${myarray[@]}"; do
+            gcloud artifacts yum upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=${i}
+            file_path=$(dirname "${i}")
+            file_name=$(basename "${i}")
+            cd file_path
+          done
 
   test-helm-charts:
     name: "Test Helm Charts"
