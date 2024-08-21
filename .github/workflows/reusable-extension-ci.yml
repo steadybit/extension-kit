@@ -371,12 +371,12 @@ jobs:
       - name: Finding deb packages and store to output
         id: finding-deb-packages
         run: |
-          echo "DEBFILES=$(find ./dist -name '*.deb' -print)" >> $GITHUB_OUTPUT
+          echo "DEBFILES=$(find ./dist -name '*.deb' -printf '%P\n')" >> $GITHUB_OUTPUT
 
       - name: Finding yum packages and store to output
         id: finding-yum-packages
         run: |
-          echo "RPMFILES=$(find ./dist -name '*.rpm' -print)" >> $GITHUB_OUTPUT
+          echo "RPMFILES=$(find ./dist -name '*.rpm' -printf '%P\n')" >> $GITHUB_OUTPUT
 
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
