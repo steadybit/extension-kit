@@ -37,6 +37,47 @@ on:
         default: false
         description: |
           Can be used for private repos. The helm chart will be uploaded to the gh-pages branch
+      gcp_project_id:
+        type: string
+        required: false
+        description: |
+          The gcp project of artifact registries
+      gcp_project_sa:
+        type: string
+        required: false
+        description: |
+          The gcp project service account of artifact registries
+      gcp_project_location:
+        type: string
+        required: false
+        default: europe-west1
+        description: |
+          The gcp location of artifact registries
+      gcp_workload_identity_provider:
+        type: string
+        required: false
+        description: |
+          The gcp workload identity provider for artifact registries
+      gcp_deb_private_artifact_registry_url:
+        type: string
+        required: false
+        description: |
+          The gcp artifact registry debian private url
+      gcp_deb_public_artifact_registry_url:
+        type: string
+        required: false
+        description: |
+          The gcp artifact registry debian public url
+      gcp_yum_private_artifact_registry_url:
+        type: string
+        required: false
+        description: |
+          The gcp artifact registry yum private url
+      gcp_yum_public_artifact_registry_url:
+        type: string
+        required: false
+        description: |
+          The gcp artifact registry yum public url
       VERSION_BUMPER_APPID:
         type: string
         required: false
@@ -306,6 +347,25 @@ jobs:
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/yum-proxy/invalidate-cache
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/yum-public/invalidate-cache
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/deb-public/invalidate-cache
+
+      - uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: latest
+
+      - name: Google Auth
+        id: auth
+        uses: 'google-github-actions/auth@v2'
+        with:
+          token_format: 'access_token'
+          project_id: ${{ inputs.gcp_project_id }}
+          service_account: ${{ inputs.gcp_project_sa }}
+          workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
+
+      - name: "[build] Upload packages to gcp internal repositories"
+        if: github.event_name != 'pull_request'
+        run: |
+          gcloud artifacts apt upload ${{ inputs.gcp_deb_private_artifact_registry_url }} --location=${{ inputs.gcp_project_location }} --source=$(find ./dist -name '*.deb' -type f)
+          gcloud artifacts apt upload ${{ inputs.gcp_yum_private_artifact_registry_url }} --location=${{ inputs.gcp_project_location }} --source=$(find ./dist -name '*.rpm' -type f)   
 
   test-helm-charts:
     name: "Test Helm Charts"
