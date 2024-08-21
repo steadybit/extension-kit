@@ -370,8 +370,8 @@ jobs:
 
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
+        working-directory: ./dist
         run: |
-          cd ./dist
           gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find . -name '*.deb' -type f)
           gcloud artifacts apt upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find . -name '*.rpm' -type f)   
 
