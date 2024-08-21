@@ -37,6 +37,30 @@ on:
         default: false
         description: |
           Can be used for private repos. The helm chart will be uploaded to the gh-pages branch
+      gcp_deb_dev_artifact_registry:
+        type: string
+        required: false
+        default: deb-dev
+        description: |
+          The gcp artifact registry debian dev name
+      gcp_deb_public_artifact_registry:
+        type: string
+        required: false
+        default: deb-public
+        description: |
+          The gcp artifact registry debian public name
+      gcp_yum_dev_artifact_registry:
+        type: string
+        required: false
+        default: yum-dev
+        description: |
+          The gcp artifact registry yum dev name
+      gcp_yum_public_artifact_registry:
+        type: string
+        required: false
+        default: yum-public
+        description: |
+          The gcp artifact registry yum public name
       VERSION_BUMPER_APPID:
         type: string
         required: false
@@ -71,6 +95,9 @@ on:
       VERSION_BUMPER_SECRET:
         required: false
         description: Private key of the github app to use for version bump
+      GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER:
+        required: false
+        description: Identity provider to use to be able to push to gcp artifact registry
 
 jobs:
   audit:
@@ -253,6 +280,9 @@ jobs:
     if: ${{ inputs.build_linux_packages }}
     name: Build Linux Packages
     needs: [audit]
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -306,6 +336,73 @@ jobs:
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/yum-proxy/invalidate-cache
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/yum-public/invalidate-cache
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/deb-public/invalidate-cache
+
+      - uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: latest
+
+      - name: Google Auth
+        id: auth
+        uses: 'google-github-actions/auth@v2'
+        with:
+          token_format: 'access_token'
+          project_id: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_ID }}
+          service_account: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_SA }}
+          workload_identity_provider: ${{ secrets.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
+
+
+      - name: "[build] Upload packages to gcp internal repositories"
+        if: github.event_name != 'pull_request'
+        working-directory: ./dist
+        run: |
+          for deb in $(find * -name '*.deb'); do
+            ERROR=$(gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$deb 2>&1) || {
+              echo "$ERROR"
+              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
+                echo "The package is already uploaded. Continuing..."
+              else
+                echo "Package installation failed for a different reason."
+                exit 1
+              fi
+            }
+          done
+          for rpm in $(find * -name '*.rpm'); do
+            ERROR=$(gcloud artifacts yum upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$rpm 2>&1) || {
+              echo "$ERROR"
+              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
+                echo "The package is already uploaded. Continuing..."
+              else
+                echo "Package installation failed for a different reason."
+                exit 1
+              fi
+            }
+          done
+
+      - name: "[release] Upload packages to gcp public repositories"
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          for deb in $(find * -name '*.deb'); do
+            ERROR=$(gcloud artifacts apt upload ${{ inputs.gcp_deb_public_artifact_registry }} --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$deb 2>&1) || {
+              echo "$ERROR"
+              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
+                echo "The package is already uploaded. Continuing..."
+              else
+                echo "Package installation failed for a different reason."
+                exit 1
+              fi
+            }
+          done
+          for rpm in $(find * -name '*.rpm'); do
+            ERROR=$(gcloud artifacts yum upload ${{ inputs.gcp_yum_public_artifact_registry }} --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$rpm 2>&1) || {
+              echo "$ERROR"
+              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
+                echo "The package is already uploaded. Continuing..."
+              else
+                echo "Package installation failed for a different reason."
+                exit 1
+              fi
+            }
+          done 
 
   test-helm-charts:
     name: "Test Helm Charts"
