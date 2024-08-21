@@ -374,10 +374,10 @@ jobs:
         working-directory: ./dist
         run: |
           for deb in $(find * -name '*.deb'); do
-            gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$deb
+            gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$deb --quiet
           done
           for rpm in $(find * -name '*.rpm'); do
-            gcloud artifacts yum upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$rpm
+            gcloud artifacts yum upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$rpm --quiet
           done
 
   test-helm-charts:
