@@ -58,26 +58,30 @@ on:
         required: false
         description: |
           The gcp workload identity provider for artifact registries
-      gcp_deb_private_artifact_registry_url:
+      gcp_deb_dev_artifact_registry:
         type: string
         required: false
+        default: deb-dev
         description: |
-          The gcp artifact registry debian private url
-      gcp_deb_public_artifact_registry_url:
+          The gcp artifact registry debian dev name
+      gcp_deb_public_artifact_registry:
         type: string
         required: false
+        default: deb-public
         description: |
-          The gcp artifact registry debian public url
-      gcp_yum_private_artifact_registry_url:
+          The gcp artifact registry debian public name
+      gcp_yum_dev_artifact_registry:
         type: string
         required: false
+        default: yum-dev
         description: |
-          The gcp artifact registry yum private url
-      gcp_yum_public_artifact_registry_url:
+          The gcp artifact registry yum dev name
+      gcp_yum_public_artifact_registry:
         type: string
         required: false
+        default: yum-public
         description: |
-          The gcp artifact registry yum public url
+          The gcp artifact registry yum public name
       VERSION_BUMPER_APPID:
         type: string
         required: false
@@ -364,8 +368,8 @@ jobs:
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
         run: |
-          gcloud artifacts apt upload ${{ inputs.gcp_deb_private_artifact_registry_url }} --location=${{ inputs.gcp_project_location }} --source=$(find ./dist -name '*.deb' -type f)
-          gcloud artifacts apt upload ${{ inputs.gcp_yum_private_artifact_registry_url }} --location=${{ inputs.gcp_project_location }} --source=$(find ./dist -name '*.rpm' -type f)   
+          gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find ./dist -name '*.deb' -type f)
+          gcloud artifacts apt upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find ./dist -name '*.rpm' -type f)   
 
   test-helm-charts:
     name: "Test Helm Charts"
