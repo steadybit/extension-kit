@@ -372,8 +372,8 @@ jobs:
         if: github.event_name != 'pull_request'
         working-directory: ./dist
         run: |
-          gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find * -name '*.deb' -type f)
-          gcloud artifacts apt upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find * -name '*.rpm' -type f)   
+          gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find * -name '*.deb' -type f -printf '%P')
+          gcloud artifacts apt upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$(find * -name '*.rpm' -type f -printf '%P')   
 
   test-helm-charts:
     name: "Test Helm Charts"
