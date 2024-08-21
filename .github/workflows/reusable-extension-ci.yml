@@ -368,29 +368,16 @@ jobs:
           service_account: ${{ inputs.gcp_project_sa }}
           workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
 
-      - name: Finding deb packages and store to output
-        id: finding-deb-packages
-        run: |
-          echo "DEBFILES=$(find ./dist -name '*.deb' -printf '%P\n')" >> $GITHUB_OUTPUT
-
-      - name: Finding yum packages and store to output
-        id: finding-yum-packages
-        run: |
-          echo "RPMFILES=$(find ./dist -name '*.rpm' -printf '%P\n')" >> $GITHUB_OUTPUT
 
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
+        working-directory: ./dist
         run: |
-          echo "packages to be uploaded"
-          echo ${{ steps.finding-deb-packages.outputs.DEBFILES }}
-          echo ${{ steps.finding-yum-packages.outputs.RPMFILES }}
-          IFS="," read -a myarray <<< ${{ steps.finding-deb-packages.outputs.DEBFILES }}
-          for i in "${myarray[@]}"; do
-            gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=${i}
+          for deb in $(find * -name '*.deb'); do
+            gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$deb
           done
-          IFS="," read -a myarray <<< ${{ steps.finding-yum-packages.outputs.RPMFILES }}
-          for j in "${myarray[@]}"; do
-            gcloud artifacts yum upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=${j}
+          for rpm in $(find * -name '*.rpm'); do
+            gcloud artifacts yum upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$rpm
           done
 
   test-helm-charts:
