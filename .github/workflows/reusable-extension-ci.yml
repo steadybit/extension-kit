@@ -344,13 +344,11 @@ jobs:
       - name: Google Auth
         id: auth
         uses: 'google-github-actions/auth@v2'
-        env:
-          GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER: ${{ secrets.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
         with:
           token_format: 'access_token'
           project_id: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_ID }}
-          service_account: ${{ vars.inputs.GCP_ARTIFACT_REGISTRY_PROJECT_SA }}
-          workload_identity_provider: ${{ env.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_SA }}
+          workload_identity_provider: ${{ secrets.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
 
 
       - name: "[build] Upload packages to gcp internal repositories"
