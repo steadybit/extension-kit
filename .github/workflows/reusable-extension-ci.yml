@@ -373,6 +373,7 @@ jobs:
         if: github.event_name != 'pull_request'
         working-directory: ./dist
         run: |
+          set +xe
           for deb in $(find * -name '*.deb'); do
             gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$deb --quiet
           done
