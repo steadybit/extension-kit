@@ -373,12 +373,27 @@ jobs:
         if: github.event_name != 'pull_request'
         working-directory: ./dist
         run: |
-          set +xe
           for deb in $(find * -name '*.deb'); do
-            gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$deb --quiet
+            ERROR=$(gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$deb 2>&1) || {
+              echo "$ERROR"
+              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
+                echo "The package is already uploaded. Continuing..."
+              else
+                echo "Package installation failed for a different reason."
+                exit 1
+              fi
+            }
           done
           for rpm in $(find * -name '*.rpm'); do
-            gcloud artifacts yum upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$rpm --quiet
+            ERROR=$(gcloud artifacts yum upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ inputs.gcp_project_location }} --source=$rpm 2>&1) || {
+              echo "$ERROR"
+              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
+                echo "The package is already uploaded. Continuing..."
+              else
+                echo "Package installation failed for a different reason."
+                exit 1
+              fi
+            }
           done
 
   test-helm-charts:
