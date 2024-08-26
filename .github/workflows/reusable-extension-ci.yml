@@ -337,7 +337,7 @@ jobs:
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/yum-public/invalidate-cache
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/deb-public/invalidate-cache
 
-      - uses: google-github-actions/setup-gcloud@v1
+      - uses: google-github-actions/setup-gcloud@v2
         with:
           version: latest
 
