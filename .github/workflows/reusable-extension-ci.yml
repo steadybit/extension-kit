@@ -37,6 +37,12 @@ on:
         default: false
         description: |
           Can be used for private repos. The helm chart will be uploaded to the gh-pages branch
+      force_push_docker_image:
+        type: boolean
+        required: false
+        default: false
+        description: |
+            If set to true, the docker image will be pushed to the registry even if the workflow is triggered by a pull request
       gcp_deb_dev_artifact_registry:
         type: string
         required: false
@@ -254,7 +260,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ inputs.force_push_docker_image || github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
