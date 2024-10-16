@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.16
+
+- fix: add dummy runtime info on windows
+
 ## 1.8.15
 
 - feat: add error details to recovery handler
