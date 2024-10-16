@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.8.17
+## 1.8.18
+
+- feat: add WrapError()
+
+a# 1.8.17
 
 - fix: add dummy runtime info on windows
 

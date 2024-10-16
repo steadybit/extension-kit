@@ -5,6 +5,7 @@
 package extension_kit
 
 import (
+	"errors"
 	"github.com/steadybit/extension-kit/extutil"
 )
 
@@ -30,11 +31,21 @@ func (e ExtensionError) Error() string {
 
 // ToError converts an error to an ExtensionError.
 func ToError(title string, err error) ExtensionError {
-	var response ExtensionError
 	if err != nil {
-		response = ExtensionError{Title: title, Detail: extutil.Ptr(err.Error())}
+		return ExtensionError{Title: title, Detail: extutil.Ptr(err.Error())}
 	} else {
-		response = ExtensionError{Title: title}
+		return ExtensionError{Title: title}
 	}
-	return response
+}
+
+// WrapError if the error is an ExtensionError, it is returned as is. Otherwise, a new ExtensionError is with the error as title.
+func WrapError(err error) *ExtensionError {
+	if err == nil {
+		return nil
+	}
+	var extErr *ExtensionError
+	if errors.As(err, &extErr) {
+		return extErr
+	}
+	return &ExtensionError{Title: err.Error()}
 }
