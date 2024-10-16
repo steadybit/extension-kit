@@ -343,10 +343,6 @@ jobs:
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/yum-public/invalidate-cache
           curl -X POST -u $REPO_USER https://artifacts.steadybit.io/service/rest/v1/repositories/deb-public/invalidate-cache
 
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          version: latest
-
       - name: Google Auth
         id: auth
         uses: 'google-github-actions/auth@v2'
@@ -356,6 +352,9 @@ jobs:
           service_account: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_SA }}
           workload_identity_provider: ${{ secrets.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
 
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: latest
 
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
