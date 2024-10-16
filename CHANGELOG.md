@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.8.16
+## 1.8.17
 
 - fix: add dummy runtime info on windows
 
