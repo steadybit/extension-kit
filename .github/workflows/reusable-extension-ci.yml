@@ -228,7 +228,8 @@ jobs:
           images: ghcr.io/${{ github.repository }}
 
       - name: "[release] Build Docker image release candidate"
-        if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
+        # temporary always build the rc image if wiz is configured to showcase the wiz integration
+        if: ${{ (startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true') || env.wiz_available }}
         uses: docker/build-push-action@v6
         with:
           context: ./
