@@ -263,6 +263,20 @@ jobs:
 #        env:
 #          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./
+          push: ${{ inputs.force_push_docker_image || github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILD_SNAPSHOT=${{ !startsWith(github.ref, 'refs/tags/') }}
+            NAME=${{ github.repository }}
+            VERSION=${{ steps.meta.outputs.version }}
+            REVISION=${{ github.sha }}
+
       - name: Download Wiz CLI
         if: ${{ env.wiz_available == 'true' }}
         run: curl -o wizcli https://downloads.wiz.io/wizcli/latest/wizcli-linux-amd64 && chmod +x wizcli
@@ -281,20 +295,6 @@ jobs:
       - name: Fetch digest of Docker image for Graph enrichment
         if: ${{ env.wiz_available == 'true' }}
         run: ./wizcli docker tag --image ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./
-          push: ${{ inputs.force_push_docker_image || github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            BUILD_SNAPSHOT=${{ !startsWith(github.ref, 'refs/tags/') }}
-            NAME=${{ github.repository }}
-            VERSION=${{ steps.meta.outputs.version }}
-            REVISION=${{ github.sha }}
 
   snyk-monitor:
     name: "[Release] Snyk Monitor latest"
