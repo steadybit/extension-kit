@@ -98,6 +98,12 @@ on:
       SNYK_TOKEN:
         required: false
         description: Optional snyk token
+      WIZ_CLIENT_ID:
+        required: false
+        description: Optional WIZ client ID
+      WIZ_CLIENT_SECRET:
+        required: false
+        description: Optional WIZ client secret
       VERSION_BUMPER_SECRET:
         required: false
         description: Private key of the github app to use for version bump
@@ -190,6 +196,7 @@ jobs:
       version_bump_available: ${{ vars.VERSION_BUMPER_APPID != '' && secrets.VERSION_BUMPER_SECRET  != '' }}
     env:
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
+      wiz_available: ${{ secrets.WIZ_CLIENT_ID  != '' && secrets.WIZ_CLIENT_SECRET  != '' && 'true' || 'false' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -255,6 +262,22 @@ jobs:
 #          command: test
 #        env:
 #          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Download Wiz CLI
+        if: ${{ env.wiz_available == 'true' }}
+        run: curl -o wizcli https://downloads.wiz.io/wizcli/latest/wizcli-linux-amd64 && chmod +x wizcli
+
+      - name: Authenticate to Wiz
+        run: ./wizcli auth --id "$WIZ_CLIENT_ID" --secret "$WIZ_CLIENT_SECRET"
+        env:
+          WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
+          WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
+
+      - name: Run wiz-cli docker image scan
+        run: ./wizcli docker scan --image ${{ github.ref_name }} --policy "Default vulnerabilities policy"
+
+      - name: Fetch digest of Docker image for Graph enrichment
+        run: ./wizcli docker tag --image ${{ github.ref_name }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
