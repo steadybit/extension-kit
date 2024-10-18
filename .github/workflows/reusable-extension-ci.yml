@@ -231,6 +231,7 @@ jobs:
         # temporary always build the rc image if wiz is configured to showcase the wiz integration
         if: ${{ (startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true') || env.wiz_available }}
         uses: docker/build-push-action@v6
+        id: rc_image
         with:
           context: ./
           push: false
@@ -281,7 +282,7 @@ jobs:
 
       - name: Fetch digest of Docker image for Graph enrichment
         if: ${{ env.wiz_available == 'true' }}
-        run: ./wizcli docker tag --image ghcr.io/${{ github.repository }}:rc
+        run: ./wizcli docker tag --image ghcr.io/${{ github.repository }}:rc --digest ${{ steps.rc_image.outputs.digest }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
