@@ -278,7 +278,7 @@ jobs:
 
       - name: Run wiz-cli docker image scan
         if: ${{ env.wiz_available == 'true' }}
-        run: ./wizcli docker scan --image ghcr.io/${{ github.repository }}:rc --policy "Default vulnerabilities policy"
+        run: ./wizcli docker scan --image ghcr.io/${{ github.repository }}:rc --policy "Extensions Policy"
 
       - name: Fetch digest of Docker image for Graph enrichment
         if: ${{ env.wiz_available == 'true' }}
