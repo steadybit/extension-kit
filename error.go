@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2023 Steadybit GmbH
+// SPDX-FileCopyrightText: 2024 Steadybit GmbH
 
 // Package extension_kit provides utilities to handle extension errors.
 package extension_kit
 
 import (
 	"errors"
+	"fmt"
 	"github.com/steadybit/extension-kit/extutil"
 )
 
@@ -26,6 +27,9 @@ type ExtensionError struct {
 }
 
 func (e ExtensionError) Error() string {
+	if e.Detail != nil {
+		return fmt.Sprintf("%s: %s", e.Title, *e.Detail)
+	}
 	return e.Title
 }
 
