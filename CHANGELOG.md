@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.19
+
+- fix: make ExtensionError.Error() include the detail
+
 ## 1.8.18
 
 - feat: add WrapError()
