@@ -235,8 +235,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
 
       - name: "[release] Build Docker image release candidate"
-        # temporary always build the rc image if wiz is configured to showcase the wiz integration
-        if: ${{ (startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true') || env.wiz_available }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
         uses: docker/build-push-action@v6
         id: rc_image
         with:
@@ -273,22 +272,22 @@ jobs:
 #          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Download Wiz CLI
-        if: ${{ env.wiz_available == 'true' }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.wiz_available == 'true' }}
         run: curl -o wizcli https://downloads.wiz.io/wizcli/latest/wizcli-linux-amd64 && chmod +x wizcli
 
       - name: Authenticate to Wiz
-        if: ${{ env.wiz_available == 'true' }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.wiz_available == 'true' }}
         run: ./wizcli auth --id "$WIZ_CLIENT_ID" --secret "$WIZ_CLIENT_SECRET"
         env:
           WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
           WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
 
       - name: Run wiz-cli docker image scan
-        if: ${{ env.wiz_available == 'true' }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.wiz_available == 'true' }}
         run: ./wizcli docker scan --image ghcr.io/${{ github.repository }}:rc --policy "Extensions Policy" --tag github_action_run_id=${{ github.run_id }}
 
       - name: Fetch digest of Docker image for Graph enrichment
-        if: ${{ env.wiz_available == 'true' }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.wiz_available == 'true' }}
         run: ./wizcli docker tag --image ghcr.io/${{ github.repository }}:rc --digest ${{ steps.rc_image.outputs.digest }}
 
       - name: Build and push Docker image
