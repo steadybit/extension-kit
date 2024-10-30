@@ -98,6 +98,12 @@ on:
       SNYK_TOKEN:
         required: false
         description: Optional snyk token
+      DOCKER_USERNAME:
+        required: false
+        description: Docker username
+      DOCKER_PASSWORD:
+        required: false
+        description: Docker password
       WIZ_CLIENT_ID:
         required: false
         description: Optional WIZ client ID
@@ -197,6 +203,7 @@ jobs:
     env:
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
       wiz_available: ${{ secrets.WIZ_CLIENT_ID  != '' && secrets.WIZ_CLIENT_SECRET  != '' && 'true' || 'false' }}
+      docker_available: ${{ secrets.DOCKER_USERNAME  != '' && secrets.DOCKER_PASSWORD  != '' && 'true' || 'false' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -297,6 +304,20 @@ jobs:
             NAME=${{ github.repository }}
             VERSION=${{ steps.meta.outputs.version }}
             REVISION=${{ github.sha }}
+
+      - name: Login to Docker Hub
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.docker_available == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Copy release to docker.io (for WIZ scanning)
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.docker_available == 'true'}}
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ github.repository }}:latest \
+            ghcr.io/${{ github.repository }}:latest
 
   snyk-monitor:
     name: "[Release] Snyk Monitor latest"
