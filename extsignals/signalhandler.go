@@ -45,7 +45,6 @@ func RemoveSignalHandlersByName(names ...string) {
 		for i, handler := range handlers {
 			if handler.Name == name {
 				handlers = append(handlers[:i], handlers[i+1:]...)
-				return
 			}
 		}
 	}
