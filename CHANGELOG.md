@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.20
+
+- feat: graceful extension shutdown
+
 ## 1.8.19
 
 - fix: make ExtensionError.Error() include the detail

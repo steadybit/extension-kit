@@ -8,12 +8,14 @@
 package exthttp
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
+	"github.com/steadybit/extension-kit/extsignals"
 	stdLog "log"
 	"net"
 	"net/http"
@@ -21,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type ListenSpecification struct {
@@ -120,6 +123,25 @@ func listen(opts ListenOpts) error {
 	if err != nil {
 		return err
 	}
+
+	extsignals.AddSignalHandler(extsignals.SignalHandler{
+		Handler: func(signal os.Signal) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer func() {
+				cancel()
+			}()
+			if wrapper == nil || wrapper.server == nil {
+				return
+			}
+			log.Info().Msg("Stopping Extension HTTP Server")
+			if err := wrapper.server.Shutdown(ctx); err != nil {
+				log.Warn().Msgf("Extension HTTP Server Shutdown Failed: %+v", err)
+			}
+			wrapper = nil
+		},
+		Order: extsignals.OrderStopExtensionHttp,
+		Name:  "StopExtensionHTTP",
+	})
 
 	serveCond.Broadcast()
 	serveCond.L.Unlock()

@@ -8,13 +8,17 @@
 package exthealth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
 	"github.com/steadybit/extension-kit/exthttp"
+	"github.com/steadybit/extension-kit/extsignals"
 	"net/http"
+	"os"
 	"sync/atomic"
+	"time"
 )
 
 var (
@@ -58,6 +62,13 @@ func addReadinessProbe(registerFn func(string, http.Handler)) {
 
 // StartProbes will start liveness and readiness probes.
 func StartProbes(port int) {
+	extsignals.AddSignalHandler(extsignals.SignalHandler{
+		Handler: func(signal os.Signal) {
+			SetReady(false)
+		},
+		Order: extsignals.OrderReadinessFalse,
+		Name:  "SetReadinessToFalse",
+	})
 	if exthttp.IsUnixSocketEnabled() {
 		addLivenessProbe(http.Handle)
 		addReadinessProbe(http.Handle)
@@ -78,6 +89,21 @@ func StartProbes(port int) {
 	go func() {
 		log.Info().Msgf("Starting probes server on port %d, ready: %t", healthPort, atomic.LoadInt32(&isReady) == 1)
 		server = &http.Server{Addr: fmt.Sprintf(":%d", healthPort), Handler: serverMux}
+
+		extsignals.AddSignalHandler(extsignals.SignalHandler{
+			Handler: func(signal os.Signal) {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer func() {
+					cancel()
+				}()
+				log.Info().Msg("Stopping Probes HTTP Server")
+				if err := server.Shutdown(ctx); err != nil {
+					log.Warn().Msgf("Probes HTTP Server Shutdown Failed: %+v", err)
+				}
+			},
+			Order: extsignals.OrderStopProbesHttp,
+			Name:  "StopProbesHTTP",
+		})
 
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msgf("Failed to start probes server")
