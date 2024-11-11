@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.21
+
+- chore: added method to remove signal handler (for testing purposes)
+
 ## 1.8.20
 
 - feat: graceful extension shutdown

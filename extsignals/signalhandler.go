@@ -39,6 +39,18 @@ func AddSignalHandler(signalHandler SignalHandler) {
 	handlers = append(handlers, signalHandler)
 }
 
+// RemoveSignalHandlersByName removes signal handlers by name. This is mainly used for testing.
+func RemoveSignalHandlersByName(names ...string) {
+	for _, name := range names {
+		for i, handler := range handlers {
+			if handler.Name == name {
+				handlers = append(handlers[:i], handlers[i+1:]...)
+				return
+			}
+		}
+	}
+}
+
 func ActivateSignalHandlers() {
 	AddSignalHandler(SignalHandler{
 		Handler: func(signal os.Signal) {
