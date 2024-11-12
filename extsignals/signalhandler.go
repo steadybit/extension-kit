@@ -7,11 +7,12 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"sync"
 	"syscall"
 )
 
 var (
-	handlers []SignalHandler
+	handlers = sync.Map{}
 )
 
 const (
@@ -36,17 +37,13 @@ func (a ByOrder) Less(i, j int) bool { return a[i].Order < a[j].Order }
 func (a ByOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 func AddSignalHandler(signalHandler SignalHandler) {
-	handlers = append(handlers, signalHandler)
+	handlers.Store(signalHandler.Name, signalHandler)
 }
 
 // RemoveSignalHandlersByName removes signal handlers by name. This is mainly used for testing.
 func RemoveSignalHandlersByName(names ...string) {
 	for _, name := range names {
-		for i, handler := range handlers {
-			if handler.Name == name {
-				handlers = append(handlers[:i], handlers[i+1:]...)
-			}
-		}
+		handlers.Delete(name)
 	}
 }
 
@@ -70,9 +67,14 @@ func ActivateSignalHandlers() {
 	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1)
 	go func(signals <-chan os.Signal) {
 		for s := range signals {
+			handlerList := make([]SignalHandler, 0)
+			handlers.Range(func(key, value interface{}) bool {
+				handlerList = append(handlerList, value.(SignalHandler))
+				return true
+			})
+			sort.Sort(ByOrder(handlerList))
 			signalName := unix.SignalName(s.(syscall.Signal))
-			sort.Sort(ByOrder(handlers))
-			for _, handler := range handlers {
+			for _, handler := range handlerList {
 				log.Debug().Str("signal", signalName).Str("handler", handler.Name).Int("order", handler.Order).Msg("received signal - call handler")
 				handler.Handler(s)
 			}

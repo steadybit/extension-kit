@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.22
+
+- fix: prevent data races in signal handler registration
+
 ## 1.8.21
 
 - chore: added method to remove signal handler (for testing purposes)
