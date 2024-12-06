@@ -186,9 +186,11 @@ jobs:
       packages: write
     outputs:
       version: ${{ steps.meta.outputs.version }}
-      deployer_available: ${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER  != '' }}
-      version_bump_available: ${{ inputs.VERSION_BUMPER_APPID != '' && secrets.VERSION_BUMPER_SECRET  != '' }}
+      deployer_available: ${{ env.deployer_available }}
+      version_bump_available: ${{ env.version_bump_available }}
     env:
+      deployer_available: ${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER  != '' && 'true' || 'false' }}
+      version_bump_available: ${{ (vars.VERSION_BUMPER_APPID != '' && secrets.VERSION_BUMPER_SECRET  != '') && 'true' || 'false' }}
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
     steps:
       - name: Checkout repository
