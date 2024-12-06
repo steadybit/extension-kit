@@ -187,7 +187,7 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
       deployer_available: ${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER  != '' }}
-      version_bump_available: ${{ vars.VERSION_BUMPER_APPID != '' && secrets.VERSION_BUMPER_SECRET  != '' }}
+      version_bump_available: ${{ inputs.VERSION_BUMPER_APPID != '' && secrets.VERSION_BUMPER_SECRET  != '' }}
     env:
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
     steps:
@@ -254,7 +254,7 @@ jobs:
 #          args: --file=Dockerfile --severity-threshold=high --project-name=${{ github.repository }} --target-reference=release-candidate
 #          command: test
 #        env:
-#          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+#            SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
