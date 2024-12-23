@@ -174,15 +174,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Download additional coverage files
+      - name: Download e2e coverage files
         if: ${{ inputs.coverage_artifacts_pattern }}
         uses: actions/download-artifact@v4
         with:
+          path: e2e
           pattern: ${{ inputs.coverage_artifacts_pattern }}
           merge-multiple: true
-
-      - name: Display structure of downloaded coverage files
-        run: ls -R e2e
 
       - name: "[release] SonarCloud Quality Gate check"
         if: ${{ startsWith(github.ref, 'refs/tags/') && env.sonar_available == 'true' }}
