@@ -26,10 +26,9 @@ jobs:
           token: ${{ secrets.token }}
           owner: ${{ github.repository_owner }}
           package: ${{ github.event.repository.name }}
-          #dry-run: ${{ inputs.dry_run }}
+          dry-run: ${{ inputs.dry-run }}
           use-regex: true
           exclude-tags: '^(v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?|main|latest)$'
           older-than: 30 days
           keep-n-untagged: 10
-          dry-run: true
           validate: true
