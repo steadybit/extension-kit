@@ -9,7 +9,7 @@ on:
     inputs:
       dry_run:
         type: boolean
-        default: false
+        default: true
         description: if true, no images will be deleted
     secrets:
       token:
@@ -21,16 +21,16 @@ jobs:
     name: Delete old container images
     runs-on: ubuntu-latest
     steps:
-      - uses: vlaurin/action-ghcr-prune@v0.6.0
+      - uses: dataaxiom/ghcr-cleanup-action@v1.0.15
         with:
           token: ${{ secrets.token }}
-          organization: ${{ github.repository_owner }}
-          container: ${{ github.event.repository.name }}
-          dry-run: ${{ inputs.dry_run }}
-          keep-younger-than: 30
-          keep-last: 10
-          keep-tags: |
-            main
-            latest
-          keep-tags-regexes: "^v?(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" #all semver          prune-tags-regexes: "^[a-f0-9]{40}$" #all commit hashes
-          prune-untagged: true
+          owner: ${{ github.repository_owner }}
+          package: ${{ github.event.repository.name }}
+          #dry-run: ${{ inputs.dry_run }}
+          use-regex: true
+          exclude-tags: "^(v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?|main|latest)$"
+          delete-untagged: true
+          older-than: 30 days
+          keep-n-untagged: 10
+          dry-run: true
+          validate: true
