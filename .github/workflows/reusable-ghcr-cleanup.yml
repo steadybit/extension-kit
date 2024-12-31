@@ -7,7 +7,7 @@ name: ghcr-cleanup
 on:
   workflow_call:
     inputs:
-      dry_run:
+      dry-run:
         type: boolean
         default: true
         description: if true, no images will be deleted
