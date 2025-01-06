@@ -9,7 +9,7 @@ on:
     inputs:
       dry-run:
         type: boolean
-        default: true
+        default: false
         description: if true, no images will be deleted
     secrets:
       token:
