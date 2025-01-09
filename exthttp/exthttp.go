@@ -29,6 +29,11 @@ func RegisterHttpHandler(path string, handler Handler) {
 	http.Handle(path, PanicRecovery(LogRequest(handler)))
 }
 
+// RegisterHttpHandlerWithLogLevel registers a handler for the given path. Also adds panic recovery and request logging with a given log level around the handler.
+func RegisterHttpHandlerWithLogLevel(path string, handler Handler, defaultLevel zerolog.Level) {
+	http.Handle(path, PanicRecovery(LogRequestWithDefaultLogLevel(handler, defaultLevel)))
+}
+
 // GetterAsHandler turns a getter function into a handler function. Typically used in combination with the RegisterHttpHandler function.
 func GetterAsHandler[T any](handler func() T) Handler {
 	return func(w http.ResponseWriter, r *http.Request, body []byte) {
@@ -69,8 +74,12 @@ func RequestTimeoutHeaderAware(next func(w http.ResponseWriter, r *http.Request)
 }
 
 func LogRequest(next Handler) http.Handler {
+	return LogRequestWithDefaultLogLevel(next, zerolog.InfoLevel)
+}
+
+func LogRequestWithDefaultLogLevel(next Handler, defaultLevel zerolog.Level) http.Handler {
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		level := zerolog.InfoLevel
+		level := defaultLevel
 		if r.Method == "GET" {
 			level = zerolog.DebugLevel
 		}

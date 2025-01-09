@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.23
+
+- chore(exthttp): add option to reduce the default logging for http handlers
+
 ## 1.8.22
 
 - fix: prevent data races in signal handler registration
