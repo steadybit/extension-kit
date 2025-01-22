@@ -11,10 +11,14 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func NotifyPlatformIndependant(c chan<- os.Signal, sig ...os.Signal) {
+func Notify(c chan<- os.Signal, sig ...os.Signal) {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1)
 }
 
-func SignalNamePlatformIndependant(s syscall.Signal) string {
+func GetSignalName(s syscall.Signal) string {
 	return unix.SignalName(s)
+}
+
+func Kill(pid int) (e error) {
+	return syscall.Kill(os.Getpid(), syscall.SIGUSR1)
 }

@@ -63,7 +63,7 @@ func ActivateSignalHandlers() {
 	})
 
 	signalChannel := make(chan os.Signal, 1)
-	NotifyPlatformIndependant(signalChannel)
+	Notify(signalChannel)
 	go func(signals <-chan os.Signal) {
 		for s := range signals {
 			handlerList := make([]SignalHandler, 0)
@@ -72,7 +72,7 @@ func ActivateSignalHandlers() {
 				return true
 			})
 			sort.Sort(ByOrder(handlerList))
-			signalName := SignalNamePlatformIndependant(s.(syscall.Signal))
+			signalName := GetSignalName(s.(syscall.Signal))
 			for _, handler := range handlerList {
 				log.Debug().Str("signal", signalName).Str("handler", handler.Name).Int("order", handler.Order).Msg("received signal - call handler")
 				handler.Handler(s)
