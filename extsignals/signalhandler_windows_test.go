@@ -1,5 +1,5 @@
-//go:build !windows
-// +build !windows
+//go:build windows
+// +build windows
 
 package extsignals
 
@@ -43,8 +43,16 @@ func TestSignalHandlers(t *testing.T) {
 		Name:  "Handler2",
 	})
 
-	err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
+	dll, err := syscall.LoadDLL("kernel32.dll")
 	require.NoError(t, err)
+
+	process, err := dll.FindProc("GenerateConsoleCtrlEvent")
+	require.NoError(t, err)
+
+	// Process call error is not checked through err variable, but instead through result code (err contains result message which can be success as well).
+	// https://go.dev/src/os/signal/signal_windows_test.go
+	result, _, _ := process.Call(syscall.CTRL_BREAK_EVENT, uintptr(os.Getpid()))
+	require.NotEqual(t, result, 0)
 
 	// Wait for the signal to be processed
 	<-time.After(500 * time.Millisecond)
@@ -80,8 +88,16 @@ func TestRemoveSignalHandlersByName(t *testing.T) {
 	})
 
 	RemoveSignalHandlersByName("Termination", "Handler1")
-	err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
+	dll, err := syscall.LoadDLL("kernel32.dll")
 	require.NoError(t, err)
+
+	process, err := dll.FindProc("GenerateConsoleCtrlEvent")
+	require.NoError(t, err)
+
+	// Process call error is not checked through err variable, but instead through result code (err contains result message which can be success as well).
+	// https://go.dev/src/os/signal/signal_windows_test.go
+	result, _, _ := process.Call(syscall.CTRL_BREAK_EVENT, uintptr(os.Getpid()))
+	require.NotEqual(t, result, 0)
 
 	// Wait for the signal to be processed
 	<-time.After(500 * time.Millisecond)

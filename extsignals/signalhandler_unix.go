@@ -1,14 +1,18 @@
+//go:build !windows
+// +build !windows
+
 package extsignals
 
 import (
 	"fmt"
-	"github.com/rs/zerolog/log"
-	"golang.org/x/sys/unix"
 	"os"
 	"os/signal"
 	"sort"
 	"sync"
 	"syscall"
+
+	"github.com/rs/zerolog/log"
+	"golang.org/x/sys/unix"
 )
 
 var (
