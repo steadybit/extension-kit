@@ -1,23 +1,24 @@
 package extsignals
 
+// These tests don't consistently work in IntelliJ,
+// use the native go test runner instead.
+
 import (
-	"github.com/rs/zerolog/log"
-	"github.com/stretchr/testify/require"
 	"os"
 	"sync/atomic"
-	"syscall"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSignalHandlers(t *testing.T) {
-	//cleanup previous test
-	RemoveSignalHandlersByName("Termination", "Handler1", "Handler2")
-
 	handler1Run := atomic.Bool{}
 	handler2Run := atomic.Bool{}
 	handlerList := atomic.Value{}
 
+	ClearSignalHandlers()
 	ActivateSignalHandlers()
 	RemoveSignalHandlersByName("Termination")
 	AddSignalHandler(SignalHandler{
@@ -39,7 +40,7 @@ func TestSignalHandlers(t *testing.T) {
 		Name:  "Handler2",
 	})
 
-	err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
+	err := Kill(os.Getpid())
 	require.NoError(t, err)
 
 	// Wait for the signal to be processed
@@ -51,12 +52,10 @@ func TestSignalHandlers(t *testing.T) {
 }
 
 func TestRemoveSignalHandlersByName(t *testing.T) {
-	//cleanup previous test
-	RemoveSignalHandlersByName("Termination", "Handler1", "Handler2")
-
 	handler1Run := atomic.Bool{}
 	handler2Run := atomic.Bool{}
 
+	ClearSignalHandlers()
 	ActivateSignalHandlers()
 	AddSignalHandler(SignalHandler{
 		Handler: func(signal os.Signal) {
@@ -76,7 +75,7 @@ func TestRemoveSignalHandlersByName(t *testing.T) {
 	})
 
 	RemoveSignalHandlersByName("Termination", "Handler1")
-	err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
+	err := Kill(os.Getpid())
 	require.NoError(t, err)
 
 	// Wait for the signal to be processed
