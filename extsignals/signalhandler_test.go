@@ -1,12 +1,8 @@
-//go:build !windows
-// +build !windows
-
 package extsignals
 
 import (
 	"os"
 	"sync/atomic"
-	"syscall"
 	"testing"
 	"time"
 
@@ -43,7 +39,7 @@ func TestSignalHandlers(t *testing.T) {
 		Name:  "Handler2",
 	})
 
-	err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
+	err := Kill(os.Getpid())
 	require.NoError(t, err)
 
 	// Wait for the signal to be processed
@@ -80,7 +76,7 @@ func TestRemoveSignalHandlersByName(t *testing.T) {
 	})
 
 	RemoveSignalHandlersByName("Termination", "Handler1")
-	err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
+	err := Kill(os.Getpid())
 	require.NoError(t, err)
 
 	// Wait for the signal to be processed
