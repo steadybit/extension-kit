@@ -1,18 +1,13 @@
-//go:build !windows
-// +build !windows
-
 package extsignals
 
 import (
 	"fmt"
 	"os"
-	"os/signal"
 	"sort"
 	"sync"
 	"syscall"
 
 	"github.com/rs/zerolog/log"
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -68,7 +63,7 @@ func ActivateSignalHandlers() {
 	})
 
 	signalChannel := make(chan os.Signal, 1)
-	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1)
+	NotifyPlatformIndependant(signalChannel)
 	go func(signals <-chan os.Signal) {
 		for s := range signals {
 			handlerList := make([]SignalHandler, 0)
@@ -77,7 +72,7 @@ func ActivateSignalHandlers() {
 				return true
 			})
 			sort.Sort(ByOrder(handlerList))
-			signalName := unix.SignalName(s.(syscall.Signal))
+			signalName := SignalNamePlatformIndependant(s.(syscall.Signal))
 			for _, handler := range handlerList {
 				log.Debug().Str("signal", signalName).Str("handler", handler.Name).Int("order", handler.Order).Msg("received signal - call handler")
 				handler.Handler(s)

@@ -6,7 +6,7 @@ import (
 	"syscall"
 )
 
-func GetSignalName(s syscall.Signal) string {
+func SignalName(s syscall.Signal) string {
 	i := sort.Search(len(signalList), func(i int) bool {
 		return signalList[i].num >= s
 	})
