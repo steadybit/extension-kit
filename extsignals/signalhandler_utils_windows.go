@@ -16,6 +16,7 @@ func GetSignalName(s syscall.Signal) string {
 
 func Kill(pid int) (e error) {
 	dll, err := syscall.LoadDLL("kernel32.dll")
+	defer dll.Release()
 
 	if err != nil {
 		return err
