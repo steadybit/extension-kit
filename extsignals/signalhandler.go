@@ -46,22 +46,7 @@ func RemoveSignalHandlersByName(names ...string) {
 	}
 }
 
-func ActivateSignalHandlers() {
-	AddSignalHandler(SignalHandler{
-		Handler: func(signal os.Signal) {
-			switch signal {
-			case syscall.SIGINT:
-				os.Exit(128 + int(signal.(syscall.Signal)))
-
-			case syscall.SIGTERM:
-				fmt.Printf("Terminated: %d\n", int(signal.(syscall.Signal)))
-				os.Exit(128 + int(signal.(syscall.Signal)))
-			}
-		},
-		Order: OrderTermination,
-		Name:  "Termination",
-	})
-
+func createSignalChannel() {
 	signalChannel := make(chan os.Signal, 1)
 	Notify(signalChannel)
 	go func(signals <-chan os.Signal) {
@@ -79,4 +64,40 @@ func ActivateSignalHandlers() {
 			}
 		}
 	}(signalChannel)
+}
+
+func ActivateSignalHandlers() {
+	AddSignalHandler(SignalHandler{
+		Handler: func(signal os.Signal) {
+			switch signal {
+			case syscall.SIGINT:
+				os.Exit(128 + int(signal.(syscall.Signal)))
+
+			case syscall.SIGTERM:
+				os.Exit(128 + int(signal.(syscall.Signal)))
+			}
+		},
+		Order: OrderTermination,
+		Name:  "Termination",
+	})
+
+	createSignalChannel()
+}
+
+func ActivateSignalHandlersNoExit() {
+	AddSignalHandler(SignalHandler{
+		Handler: func(signal os.Signal) {
+			switch signal {
+			case syscall.SIGINT:
+				fmt.Println("SIGINT processed.")
+
+			case syscall.SIGTERM:
+				fmt.Println("SIGTERM processed.")
+			}
+		},
+		Order: OrderTermination,
+		Name:  "Termination",
+	})
+
+	createSignalChannel()
 }
