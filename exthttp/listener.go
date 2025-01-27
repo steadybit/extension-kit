@@ -13,6 +13,9 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
+	"github.com/rs/zerolog/log"
+	"github.com/steadybit/extension-kit/extsignals"
 	stdLog "log"
 	"net"
 	"net/http"
@@ -21,10 +24,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog/log"
-	"github.com/steadybit/extension-kit/extsignals"
 )
 
 type ListenSpecification struct {
@@ -74,10 +73,7 @@ func (spec *ListenSpecification) validateSpecification() error {
 type ListenOpts struct {
 	// Port Default port to bind to. Can be overridden through the environment variable STEADYBIT_EXTENSION_PORT.
 	Port int
-	// Custom HTTP request multiplexer. If nil uses the default http.DefaultServeMux.
-	Mux *http.ServeMux
 }
-
 type httpServerWrapper struct {
 	serve  func() error
 	server *http.Server
@@ -118,11 +114,11 @@ func listen(opts ListenOpts) error {
 
 	var err error
 	if spec.UnixSocket != "" {
-		wrapper, err = prepareUnixSocketServer(spec.UnixSocket, opts.Mux)
+		wrapper, err = prepareUnixSocketServer(spec.UnixSocket)
 	} else if spec.isTlsEnabled() {
-		wrapper, err = prepareHttpsServer(port, spec, opts.Mux)
+		wrapper, err = prepareHttpsServer(port, spec)
 	} else {
-		wrapper, err = prepareHttpServer(port, opts.Mux)
+		wrapper, err = prepareHttpServer(port)
 	}
 	if err != nil {
 		return err
@@ -187,7 +183,7 @@ func (fw *forwardToZeroLogWriter) Write(p []byte) (n int, err error) {
 	return len([]byte(trimmed)), nil
 }
 
-func prepareHttpServer(port int, mux *http.ServeMux) (*httpServerWrapper, error) {
+func prepareHttpServer(port int) (*httpServerWrapper, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
@@ -195,7 +191,6 @@ func prepareHttpServer(port int, mux *http.ServeMux) (*httpServerWrapper, error)
 
 	server := &http.Server{
 		ErrorLog: stdLog.New(&forwardToZeroLogWriter{}, "", 0),
-		Handler:  mux,
 	}
 
 	log.Info().Msgf("Starting extension http server on port %d", port)
@@ -207,7 +202,7 @@ func prepareHttpServer(port int, mux *http.ServeMux) (*httpServerWrapper, error)
 	}, nil
 }
 
-func prepareUnixSocketServer(path string, mux *http.ServeMux) (*httpServerWrapper, error) {
+func prepareUnixSocketServer(path string) (*httpServerWrapper, error) {
 	if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
 		err = os.MkdirAll(filepath.Dir(path), 0755)
 		if err != nil {
@@ -224,7 +219,6 @@ func prepareUnixSocketServer(path string, mux *http.ServeMux) (*httpServerWrappe
 
 	server := &http.Server{
 		ErrorLog: stdLog.New(&forwardToZeroLogWriter{}, "", 0),
-		Handler:  mux,
 	}
 
 	return &httpServerWrapper{
@@ -236,7 +230,7 @@ func prepareUnixSocketServer(path string, mux *http.ServeMux) (*httpServerWrappe
 	}, nil
 }
 
-func prepareHttpsServer(port int, spec ListenSpecification, mux *http.ServeMux) (*httpServerWrapper, error) {
+func prepareHttpsServer(port int, spec ListenSpecification) (*httpServerWrapper, error) {
 	certReloader := NewCertReloader(spec.TlsServerCert, spec.TlsServerKey)
 
 	if _, err := certReloader.GetCertificate(nil); err != nil {
@@ -262,7 +256,6 @@ func prepareHttpsServer(port int, spec ListenSpecification, mux *http.ServeMux) 
 	server := &http.Server{
 		TLSConfig: &tlsConfig,
 		ErrorLog:  stdLog.New(&forwardToZeroLogWriter{}, "", 0),
-		Handler:   mux,
 	}
 	return &httpServerWrapper{
 		serve: func() error {
