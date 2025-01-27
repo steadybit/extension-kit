@@ -13,9 +13,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog/log"
-	"github.com/steadybit/extension-kit/extsignals"
 	stdLog "log"
 	"net"
 	"net/http"
@@ -24,6 +21,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kelseyhightower/envconfig"
+	"github.com/rs/zerolog/log"
+	"github.com/steadybit/extension-kit/extsignals"
 )
 
 type ListenSpecification struct {
