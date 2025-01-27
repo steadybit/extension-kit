@@ -3,6 +3,7 @@ package extsignals
 import (
 	"context"
 	"os"
+	"os/signal"
 	"sort"
 	"sync"
 	"syscall"
@@ -60,6 +61,7 @@ func createSignalChannel(context context.Context) {
 		for {
 			select {
 			case <-context.Done():
+				signal.Stop(signalChannel)
 				return
 			case s := <-signals:
 				handlerList := make([]SignalHandler, 0)
