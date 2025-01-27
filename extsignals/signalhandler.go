@@ -1,7 +1,7 @@
 package extsignals
 
 import (
-	"fmt"
+	"context"
 	"os"
 	"sort"
 	"sync"
@@ -53,58 +53,49 @@ func RemoveSignalHandlersByName(names ...string) {
 	}
 }
 
-func createSignalChannel() {
+func createSignalChannel(context context.Context) {
 	signalChannel := make(chan os.Signal, 1)
 	Notify(signalChannel)
 	go func(signals <-chan os.Signal) {
-		for s := range signals {
-			handlerList := make([]SignalHandler, 0)
-			handlers.Range(func(key, value interface{}) bool {
-				handlerList = append(handlerList, value.(SignalHandler))
-				return true
-			})
-			sort.Sort(ByOrder(handlerList))
-			signalName := GetSignalName(s.(syscall.Signal))
-			for _, handler := range handlerList {
-				log.Debug().Str("signal", signalName).Str("handler", handler.Name).Int("order", handler.Order).Msg("received signal - call handler")
-				handler.Handler(s)
+		for {
+			select {
+			case <-context.Done():
+				return
+			case s := <-signals:
+				handlerList := make([]SignalHandler, 0)
+				handlers.Range(func(key, value interface{}) bool {
+					handlerList = append(handlerList, value.(SignalHandler))
+					return true
+				})
+				sort.Sort(ByOrder(handlerList))
+				signalName := GetSignalName(s.(syscall.Signal))
+				for _, handler := range handlerList {
+					log.Debug().Str("signal", signalName).Str("handler", handler.Name).Int("order", handler.Order).Msg("received signal - call handler")
+					handler.Handler(s)
+				}
 			}
 		}
 	}(signalChannel)
 }
 
 func ActivateSignalHandlers() {
-	AddSignalHandler(SignalHandler{
-		Handler: func(signal os.Signal) {
-			switch signal {
-			case syscall.SIGINT:
-				os.Exit(128 + int(signal.(syscall.Signal)))
-
-			case syscall.SIGTERM:
-				os.Exit(128 + int(signal.(syscall.Signal)))
-			}
-		},
-		Order: OrderTermination,
-		Name:  "Termination",
-	})
-
-	createSignalChannel()
+	ActivateSignalHandlerWithContext(context.Background())
 }
 
-func ActivateSignalHandlersNoExit() {
+func ActivateSignalHandlerWithContext(context context.Context) {
 	AddSignalHandler(SignalHandler{
 		Handler: func(signal os.Signal) {
 			switch signal {
 			case syscall.SIGINT:
-				fmt.Println("SIGINT processed.")
+				os.Exit(128 + int(signal.(syscall.Signal)))
 
 			case syscall.SIGTERM:
-				fmt.Println("SIGTERM processed.")
+				os.Exit(128 + int(signal.(syscall.Signal)))
 			}
 		},
 		Order: OrderTermination,
 		Name:  "Termination",
 	})
 
-	createSignalChannel()
+	createSignalChannel(context)
 }
