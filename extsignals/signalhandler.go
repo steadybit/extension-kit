@@ -39,6 +39,13 @@ func AddSignalHandler(signalHandler SignalHandler) {
 	handlers.Store(signalHandler.Name, signalHandler)
 }
 
+func ClearSignalHandlers() {
+	handlers.Range(func(key, value interface{}) bool {
+		handlers.Delete(key)
+		return true
+	})
+}
+
 // RemoveSignalHandlersByName removes signal handlers by name. This is mainly used for testing.
 func RemoveSignalHandlersByName(names ...string) {
 	for _, name := range names {
