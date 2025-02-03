@@ -326,7 +326,10 @@ jobs:
 
       - name: Export GPG key
         run: |
+          echo "List keys"
           gpg --list-keys steadybit
+          echo "List private keys"
+          gpg --list-secret-keys steadybit
           mkdir -p gpg
           echo -n "${{ secrets.MAVEN_GPG_PRIVATE_KEY }}" > gpg.key
 
