@@ -177,14 +177,14 @@ jobs:
 
       - name: SonarCloud Scan
         if: ${{ env.sonar_available == 'true' }}
-        uses: SonarSource/sonarcloud-github-action@v4.0.0
+        uses: sonarsource/sonarqube-scan-action@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: "[release] SonarCloud Quality Gate check"
         if: ${{ startsWith(github.ref, 'refs/tags/') && env.sonar_available == 'true' }}
-        uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
+        uses: sonarsource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
