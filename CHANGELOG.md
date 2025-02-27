@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.0
+
+- feat(exthttp): conditionally enable pprof handlers using `STEADYBIT_EXTENSION_ENABLE_PPROF`; deactivated by default
+
 ## 1.8.23
 
 - chore(exthttp): add option to reduce the default logging for http handlers
