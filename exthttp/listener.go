@@ -19,7 +19,7 @@ import (
 	stdLog "log"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" // sonarignore go:S4507 (pprof handlers are disabled by default; see hidePprofHandlers)
 	"os"
 	"path/filepath"
 	"strings"
