@@ -30,3 +30,4 @@ are supported:
 | `STEADYBIT_LOG_FORMAT`                | Defines the log format that the extension will use. Possible values are `text` and `json`.                                                                             | text    |
 | `STEADYBIT_LOG_LEVEL`                 | Defines the active log level. Possible values are `debug`, `info`, `warn` and `error`.                                                                                 | info    |
 | `STEADYBIT_LOG_COLOR`                 | Defines colorization of log output. Possible values are `true`, `false` and unset. If unset will use color only if stderr is a terminal.                               |         |
+| `STEADYBIT_EXTENSION_ENABLE_PPROF`    | Enables the `/debug/pprof/` handlers for debugging                                                                                                                     | false   |

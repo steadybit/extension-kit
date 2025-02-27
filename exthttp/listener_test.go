@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -69,6 +70,8 @@ func TestStartHttpServer(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
+	old := http.DefaultServeMux
+	defer func() { http.DefaultServeMux = old }()
 	go Listen(ListenOpts{Port: port})
 	WaitForServe()
 	defer StopListen()
@@ -88,6 +91,8 @@ func TestStartHttpsServer(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
+	old := http.DefaultServeMux
+	defer func() { http.DefaultServeMux = old }()
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", key.Name())
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", cert.Name())
 	go Listen(ListenOpts{Port: port})
@@ -115,6 +120,8 @@ func TestStartHttpsServerMustFailWhenCertificateCannotBeFound(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
+	old := http.DefaultServeMux
+	defer func() { http.DefaultServeMux = old }()
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", key)
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", filepath.Join(t.TempDir(), "unknown.pem"))
 
@@ -129,6 +136,8 @@ func TestStartHttpsServerMustFailWhenKeyCannotBeFound(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
+	old := http.DefaultServeMux
+	defer func() { http.DefaultServeMux = old }()
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", filepath.Join(t.TempDir(), "unknown.pem"))
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", cert)
 	err = listen(ListenOpts{Port: port})
@@ -149,6 +158,8 @@ func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *t
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
+	old := http.DefaultServeMux
+	defer func() { http.DefaultServeMux = old }()
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", serverKey.Name())
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", serverCert.Name())
 	t.Setenv("STEADYBIT_EXTENSION_TLS_CLIENT_CAS", caCerts.Name())
@@ -177,6 +188,8 @@ func TestStartHttpsServerEnforcingMutualTls(t *testing.T) {
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
 
+	old := http.DefaultServeMux
+	defer func() { http.DefaultServeMux = old }()
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_KEY", serverKey.Name())
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", serverCert.Name())
 	t.Setenv("STEADYBIT_EXTENSION_TLS_CLIENT_CAS", clientCertDir)
@@ -206,6 +219,8 @@ func TestStartHttpsServerEnforcingMutualTls(t *testing.T) {
 
 func TestStartHttpServerUsingUnixSocket(t *testing.T) {
 	sock := filepath.Join(t.TempDir(), "sock")
+	old := http.DefaultServeMux
+	defer func() { http.DefaultServeMux = old }()
 
 	t.Setenv("STEADYBIT_EXTENSION_UNIX_SOCKET", sock)
 	go Listen(ListenOpts{})
@@ -223,4 +238,38 @@ func TestStartHttpServerUsingUnixSocket(t *testing.T) {
 	resp, err := client.Get("http://localhost")
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func Test_hidePprofHandlers(t *testing.T) {
+	tests := []struct {
+		name         string
+		enabled      bool
+		wantedStatus int
+	}{
+		{
+			name:         "pprof handlers are hidden",
+			enabled:      false,
+			wantedStatus: http.StatusNotFound,
+		},
+		{
+			name:         "pprof handlers are not hidden",
+			enabled:      true,
+			wantedStatus: http.StatusOK,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			old := http.DefaultServeMux
+			defer func() { http.DefaultServeMux = old }()
+
+			r, _ := http.NewRequest("GET", "/debug/pprof/", nil)
+			w := httptest.NewRecorder()
+
+			hidePprofHandlers(ListenSpecification{EnablePprof: tt.enabled})
+
+			http.DefaultServeMux.ServeHTTP(w, r)
+
+			assert.Equal(t, tt.wantedStatus, w.Result().StatusCode)
+		})
+	}
 }

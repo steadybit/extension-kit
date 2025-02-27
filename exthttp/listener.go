@@ -19,6 +19,7 @@ import (
 	stdLog "log"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,7 @@ type ListenSpecification struct {
 	TlsServerCert string   `json:"tlsServerCert" split_words:"true" required:"false"`
 	TlsServerKey  string   `json:"tlsServerKey" split_words:"true" required:"false"`
 	TlsClientCas  []string `json:"tlsClientCas" split_words:"true" required:"false"`
+	EnablePprof   bool     `json:"enablePprof" split_words:"true" required:"false"`
 }
 
 var (
@@ -92,7 +94,27 @@ func IsUnixSocketEnabled() bool {
 	return spec.UnixSocket != ""
 }
 
+func hidePprofHandlers(spec ListenSpecification) {
+	if spec.EnablePprof {
+		log.Info().Msg("pprof handlers enabled")
+		return
+	}
+
+	log.Debug().Msg("disabling pprof handlers")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof", func(writer http.ResponseWriter, request *http.Request) {
+		writer.WriteHeader(http.StatusNotFound)
+	})
+	mux.HandleFunc("/debug/pprof/", func(writer http.ResponseWriter, request *http.Request) {
+		writer.WriteHeader(http.StatusNotFound)
+	})
+	mux.Handle("/", http.DefaultServeMux)
+	http.DefaultServeMux = mux
+}
+
 func listen(opts ListenOpts) error {
+
 	success := false
 	serveCond.L.Lock()
 	defer func() {
@@ -105,7 +127,9 @@ func listen(opts ListenOpts) error {
 	spec.parseConfigurationFromEnvironment()
 	if err := spec.validateSpecification(); err != nil {
 		return fmt.Errorf("failed to validate listen specification: %w", err)
+
 	}
+	hidePprofHandlers(spec)
 
 	port := opts.Port
 	if spec.Port != 0 {
