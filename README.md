@@ -1,4 +1,4 @@
-<img src="./logo.png" height="130" align="right" alt="ExtensionKit logo depicting a wrench within a rounded rectangle on the background">
+<img src="./logo.png" height="70" align="right" alt="ExtensionKit logo depicting a wrench within a rounded rectangle on the background">
 
 # ExtensionKit
 
