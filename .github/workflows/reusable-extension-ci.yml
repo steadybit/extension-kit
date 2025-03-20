@@ -521,8 +521,8 @@ jobs:
           inputs: '{"extension":"${{ github.repository }}","version":"${{ needs.build-images.outputs.version }}","revision":"${{ github.sha }}"}'
           token: ${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER }}
 
-  check-go-pkg:
-    name: Trigger test environment updates
+  check-go-package:
+    name: Check Module Download on Tag
     if: startsWith(github.ref, 'refs/tags/')
     needs: [build-images]
     runs-on: ubuntu-latest
@@ -557,4 +557,8 @@ jobs:
           module=${{ steps.get_module.outputs.module }}
           tag=${{ steps.get_tag.outputs.tag }}
           echo "Running: go get ${module}@${tag}"
+          mkdir tempPkgDownload
+          cd tempPkgDownload
           go get ${module}@${tag}
+          cd ..
+          rm -fR tempPkgDownload
