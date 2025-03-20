@@ -552,13 +552,10 @@ jobs:
           echo "module=$module" >> $GITHUB_OUTPUT
           echo "Module name: $module"
 
-      - name: Attempt to download module with go get
+      - name: Create temporary module and test go get
         run: |
-          module=${{ steps.get_module.outputs.module }}
-          tag=${{ steps.get_tag.outputs.tag }}
-          echo "Running: go get ${module}@${tag}"
-          mkdir tempPkgDownload
-          cd tempPkgDownload
-          go get ${module}@${tag}
-          cd ..
-          rm -fR tempPkgDownload
+          # Create a temporary directory for testing
+          mkdir temp-check && cd temp-check
+          go mod init temp-check
+          echo "Attempting to run: go get ${{ steps.get_module.outputs.module }}@${{ steps.get_tag.outputs.tag }}"
+          go get "${{ steps.get_module.outputs.module }}@${{ steps.get_tag.outputs.tag }}"
