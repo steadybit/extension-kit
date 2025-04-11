@@ -19,6 +19,7 @@ func TestSignalHandlers(t *testing.T) {
 	handlerList := atomic.Value{}
 
 	ClearSignalHandlers()
+	defer ClearSignalHandlers()
 	ActivateSignalHandlers()
 	RemoveSignalHandlersByName("Termination")
 	AddSignalHandler(SignalHandler{
@@ -56,6 +57,7 @@ func TestRemoveSignalHandlersByName(t *testing.T) {
 	handler2Run := atomic.Bool{}
 
 	ClearSignalHandlers()
+	defer ClearSignalHandlers()
 	ActivateSignalHandlers()
 	AddSignalHandler(SignalHandler{
 		Handler: func(signal os.Signal) {
