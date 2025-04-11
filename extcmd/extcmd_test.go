@@ -6,32 +6,39 @@ package extcmd
 import (
 	"github.com/stretchr/testify/assert"
 	"os/exec"
+	"runtime"
 	"testing"
 )
 
 func TestNewCmdState(t *testing.T) {
 	_, err := GetCmdState("I am unknown")
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
-	cmd := exec.Command("echo", "hello", "world")
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd", "/C", "echo hello world")
+	} else {
+		cmd = exec.Command("echo", "hello", "world")
+	}
+
 	cs := NewCmdState(cmd)
 
 	persistedState, err := GetCmdState(cs.Id)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, persistedState)
 
 	err = cmd.Start()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = cmd.Wait()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	messages := cs.GetMessages(true)
 	assert.Len(t, messages, 1)
 	assert.Equal(t, "info", *messages[0].Level)
-	assert.Equal(t, "hello world\n", messages[0].Message)
+	assert.Contains(t, messages[0].Message, "hello world")
 
 	RemoveCmdState(cs.Id)
 	persistedState, err = GetCmdState(cs.Id)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, persistedState)
 }

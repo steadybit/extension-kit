@@ -1,14 +1,14 @@
 package extsignals
 
 import (
-	"fmt"
-	"github.com/rs/zerolog/log"
-	"golang.org/x/sys/unix"
+	"context"
 	"os"
 	"os/signal"
 	"sort"
 	"sync"
 	"syscall"
+
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -40,6 +40,13 @@ func AddSignalHandler(signalHandler SignalHandler) {
 	handlers.Store(signalHandler.Name, signalHandler)
 }
 
+func ClearSignalHandlers() {
+	handlers.Range(func(key, value interface{}) bool {
+		handlers.Delete(key)
+		return true
+	})
+}
+
 // RemoveSignalHandlersByName removes signal handlers by name. This is mainly used for testing.
 func RemoveSignalHandlersByName(names ...string) {
 	for _, name := range names {
@@ -47,7 +54,37 @@ func RemoveSignalHandlersByName(names ...string) {
 	}
 }
 
+func createSignalChannel(context context.Context) {
+	signalChannel := make(chan os.Signal, 1)
+	Notify(signalChannel)
+	go func(signals <-chan os.Signal) {
+		for {
+			select {
+			case <-context.Done():
+				signal.Stop(signalChannel)
+				return
+			case s := <-signals:
+				handlerList := make([]SignalHandler, 0)
+				handlers.Range(func(key, value interface{}) bool {
+					handlerList = append(handlerList, value.(SignalHandler))
+					return true
+				})
+				sort.Sort(ByOrder(handlerList))
+				signalName := GetSignalName(s.(syscall.Signal))
+				for _, handler := range handlerList {
+					log.Debug().Str("signal", signalName).Str("handler", handler.Name).Int("order", handler.Order).Msg("received signal - call handler")
+					handler.Handler(s)
+				}
+			}
+		}
+	}(signalChannel)
+}
+
 func ActivateSignalHandlers() {
+	ActivateSignalHandlerWithContext(context.Background())
+}
+
+func ActivateSignalHandlerWithContext(context context.Context) {
 	AddSignalHandler(SignalHandler{
 		Handler: func(signal os.Signal) {
 			switch signal {
@@ -55,7 +92,6 @@ func ActivateSignalHandlers() {
 				os.Exit(128 + int(signal.(syscall.Signal)))
 
 			case syscall.SIGTERM:
-				fmt.Printf("Terminated: %d\n", int(signal.(syscall.Signal)))
 				os.Exit(128 + int(signal.(syscall.Signal)))
 			}
 		},
@@ -63,21 +99,5 @@ func ActivateSignalHandlers() {
 		Name:  "Termination",
 	})
 
-	signalChannel := make(chan os.Signal, 1)
-	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1)
-	go func(signals <-chan os.Signal) {
-		for s := range signals {
-			handlerList := make([]SignalHandler, 0)
-			handlers.Range(func(key, value interface{}) bool {
-				handlerList = append(handlerList, value.(SignalHandler))
-				return true
-			})
-			sort.Sort(ByOrder(handlerList))
-			signalName := unix.SignalName(s.(syscall.Signal))
-			for _, handler := range handlerList {
-				log.Debug().Str("signal", signalName).Str("handler", handler.Name).Int("order", handler.Order).Msg("received signal - call handler")
-				handler.Handler(s)
-			}
-		}
-	}(signalChannel)
+	createSignalChannel(context)
 }
