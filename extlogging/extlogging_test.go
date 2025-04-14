@@ -1,14 +1,15 @@
 package extlogging
 
 import (
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
 )
 
 var captureLock sync.Mutex
@@ -30,11 +31,12 @@ func TestInitZeroLog_Format(t *testing.T) {
 		t.Run(tt.format, func(t *testing.T) {
 			t.Setenv("STEADYBIT_LOG_FORMAT", tt.format)
 
-			msg := captureStdErr(func() {
+			msg, err := captureStdErr(func() {
 				InitZeroLog()
 				log.Info().Msg("test")
 			})
 
+			assert.Nil(t, err)
 			assert.Equal(t, tt.wantedOutput, msg)
 		})
 	}
@@ -60,21 +62,32 @@ func TestInitZeroLog_Level(t *testing.T) {
 	}
 }
 
-func captureStdErr(f func()) string {
+func captureStdErr(f func()) (string, error) {
 	captureLock.Lock()
 	defer captureLock.Unlock()
 
 	rescueStderr := os.Stderr
-	r, w, _ := os.Pipe()
+	rescueStdout := os.Stdout
+	r, w, err := os.Pipe()
+
+	if err != nil {
+		log.Error().Msgf("unable to create os pipe: %s", err)
+		return "", err
+	}
+
 	os.Stderr = w
 	os.Stdout = w
 
 	f()
-	_ = w.Sync()
 
-	defer func() { os.Stderr = rescueStderr }()
+	defer func() {
+		os.Stderr = rescueStderr
+		os.Stdout = rescueStdout
+	}()
 
 	_ = r.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+
+	w.Close()
 	captured, _ := io.ReadAll(r)
-	return string(captured)
+	return string(captured), nil
 }

@@ -6,10 +6,12 @@
 package extlogging
 
 import (
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 const RFC3339Micro = "2006-01-02T15:04:05.999Z07:00"
@@ -21,7 +23,10 @@ func InitZeroLog() {
 
 	var logger zerolog.Logger
 	if strings.ToLower(os.Getenv("STEADYBIT_LOG_FORMAT")) != "json" {
-		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: getNoColor(), TimeFormat: RFC3339Micro})
+		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: getNoColor(), TimeFormat: RFC3339Micro, FormatTimestamp: func(i interface{}) string {
+			timestamp, _ := time.Parse(time.RFC3339, i.(string))
+			return timestamp.Format(RFC3339Micro)
+		}})
 	} else {
 		logger = zerolog.New(os.Stderr)
 	}
