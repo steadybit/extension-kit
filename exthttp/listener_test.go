@@ -12,16 +12,18 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/madflojo/testcerts"
-	"github.com/phayes/freeport"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+
+	"github.com/madflojo/testcerts"
+	"github.com/phayes/freeport"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateSpecificationSuccessHttp(t *testing.T) {
@@ -126,7 +128,16 @@ func TestStartHttpsServerMustFailWhenCertificateCannotBeFound(t *testing.T) {
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", filepath.Join(t.TempDir(), "unknown.pem"))
 
 	err = listen(ListenOpts{Port: port})
-	assert.ErrorContains(t, err, "no such file or directory")
+
+	var expected string
+
+	if runtime.GOOS == "windows" {
+		expected = "cannot find the file specified"
+	} else {
+		expected = "no such file or directory"
+	}
+
+	assert.ErrorContains(t, err, expected)
 }
 
 func TestStartHttpsServerMustFailWhenKeyCannotBeFound(t *testing.T) {
@@ -142,7 +153,15 @@ func TestStartHttpsServerMustFailWhenKeyCannotBeFound(t *testing.T) {
 	t.Setenv("STEADYBIT_EXTENSION_TLS_SERVER_CERT", cert)
 	err = listen(ListenOpts{Port: port})
 
-	assert.ErrorContains(t, err, "no such file or directory")
+	var expected string
+
+	if runtime.GOOS == "windows" {
+		expected = "cannot find the file specified"
+	} else {
+		expected = "no such file or directory"
+	}
+
+	assert.ErrorContains(t, err, expected)
 }
 
 func TestStartHttpsServerWithMutualTlsMustRefuseConnectionsWithoutMutualTls(t *testing.T) {
