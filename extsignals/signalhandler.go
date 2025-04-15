@@ -54,7 +54,7 @@ func RemoveSignalHandlersByName(names ...string) {
 	}
 }
 
-func createSignalChannel(context context.Context) {
+func createSignalChannel(context context.Context) chan os.Signal {
 	signalChannel := make(chan os.Signal, 1)
 	Notify(signalChannel)
 	go func(signals <-chan os.Signal) {
@@ -78,6 +78,8 @@ func createSignalChannel(context context.Context) {
 			}
 		}
 	}(signalChannel)
+
+	return signalChannel
 }
 
 func ActivateSignalHandlers() {
