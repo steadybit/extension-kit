@@ -33,7 +33,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         
   build-windows:
-    if: github.event_name == "push"
+    if: github.event_name == 'push'
     runs-on: windows-latest
 
     steps:
