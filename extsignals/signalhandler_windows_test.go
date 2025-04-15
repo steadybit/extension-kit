@@ -6,13 +6,18 @@ package extsignals
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWindowsSignalsWithExternalProcess(t *testing.T) {
@@ -128,4 +133,78 @@ func main() {
 			t.Logf("Test passed: Target process received os.Interrupt and exited successfully.")
 		}
 	}
+}
+
+// Test is very similar the Linux counterpart. Due to the first test showing that the signals can be handled and processed,
+// signal handling here is mocked due to CTRL_BREAK_EVENT killing the entire process group (test harness included).
+func TestSignalHandlers(t *testing.T) {
+	handler1Run := atomic.Bool{}
+	handler2Run := atomic.Bool{}
+	handlerList := atomic.Value{}
+
+	ClearSignalHandlers()
+	defer ClearSignalHandlers()
+	signal_channel := createSignalChannel(context.Background())
+	AddSignalHandler(SignalHandler{
+		Handler: func(signal os.Signal) {
+			log.Info().Msg("Handler1")
+			handler1Run.Store(true)
+			handlerList.Store(handlerList.Load().(string) + "Handler1")
+		},
+		Order: 30,
+		Name:  "Handler1",
+	})
+	AddSignalHandler(SignalHandler{
+		Handler: func(signal os.Signal) {
+			log.Info().Msg("Handler2")
+			handler2Run.Store(true)
+			handlerList.Store("Handler2")
+		},
+		Order: 10,
+		Name:  "Handler2",
+	})
+
+	signal_channel <- os.Interrupt
+
+	<-time.After(500 * time.Millisecond)
+
+	require.True(t, handler1Run.Load())
+	require.True(t, handler2Run.Load())
+	require.Equal(t, handlerList.Load(), "Handler2Handler1")
+}
+
+// Test is very similar the Linux counterpart. Due to the first test showing that the signals can be handled and processed,
+// signal handling here is mocked due to CTRL_BREAK_EVENT killing the entire process group (test harness included).
+func TestRemoveSignalHandlersByName(t *testing.T) {
+	handler1Run := atomic.Bool{}
+	handler2Run := atomic.Bool{}
+
+	ClearSignalHandlers()
+	defer ClearSignalHandlers()
+	signal_channel := createSignalChannel(context.Background())
+	AddSignalHandler(SignalHandler{
+		Handler: func(signal os.Signal) {
+			log.Info().Msg("Handler1")
+			handler1Run.Store(true)
+		},
+		Order: 30,
+		Name:  "Handler1",
+	})
+	AddSignalHandler(SignalHandler{
+		Handler: func(signal os.Signal) {
+			log.Info().Msg("Handler2")
+			handler2Run.Store(true)
+		},
+		Order: 10,
+		Name:  "Handler2",
+	})
+
+	RemoveSignalHandlersByName("Termination", "Handler1")
+	signal_channel <- os.Interrupt
+
+	// Wait for the signal to be processed
+	<-time.After(500 * time.Millisecond)
+
+	require.False(t, handler1Run.Load())
+	require.True(t, handler2Run.Load())
 }
