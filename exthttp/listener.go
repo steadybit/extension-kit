@@ -1,9 +1,9 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2025 Steadybit GmbH
+
 /*
  * Copyright 2024 steadybit GmbH. All rights reserved.
  */
-
-// SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2023 Steadybit GmbH
 
 package exthttp
 
@@ -263,7 +263,7 @@ func prepareHttpsServer(port int, spec ListenSpecification) (*httpServerWrapper,
 
 	clientCAs, err := loadCertPool(spec.TlsClientCas)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load TLS client CA certificates: %w", err)
+		log.Warn().Err(err).Msg("failed to load TLS client CA certificates")
 	}
 
 	tlsConfig := tls.Config{
@@ -292,20 +292,24 @@ func prepareHttpsServer(port int, spec ListenSpecification) (*httpServerWrapper,
 
 func loadCertPool(filePaths []string) (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
+
+	var err error
 	for _, filePath := range filePaths {
-		_ = filepath.Walk(filePath, func(path string, info os.FileInfo, _ error) error {
-			if info.IsDir() {
+		walkErr := filepath.WalkDir(filePath, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			} else if entry.IsDir() {
 				return nil
 			}
-			caCert, err := os.ReadFile(path)
-			if err == nil {
-				log.Debug().Msgf("Loading CA certificate from %s", path)
+			if caCert, err := os.ReadFile(path); err == nil {
+				log.Debug().Msgf("loading CA certificate from %s", path)
 				pool.AppendCertsFromPEM(caCert)
 			} else {
-				log.Error().Err(err).Msgf("Failed to read CA certificate from %s", path)
+				log.Error().Err(err).Msgf("failed to read CA certificate from %s", path)
 			}
 			return nil
 		})
+		err = errors.Join(err, walkErr)
 	}
-	return pool, nil
+	return pool, err
 }

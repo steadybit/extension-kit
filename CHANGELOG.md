@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.1 (next)
+
+- fix: incorrect error handling when loading CA certificates
+
 ## 1.9.0
 
 - feat(exthttp): conditionally enable pprof handlers using `STEADYBIT_EXTENSION_ENABLE_PPROF`; deactivated by default
