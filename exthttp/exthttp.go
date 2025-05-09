@@ -128,7 +128,7 @@ func WriteError(w http.ResponseWriter, err extension_kit.ExtensionError) {
 	if err.Detail != nil {
 		logEvent.Str("details", *err.Detail)
 	}
-	logEvent.Msgf(err.Title)
+	logEvent.Msg(err.Title)
 
 	encodeErr := json.NewEncoder(w).Encode(err)
 	if encodeErr != nil {
