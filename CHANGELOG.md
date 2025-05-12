@@ -1,8 +1,9 @@
 # Changelog
 
-## 1.9.1 (next)
+## 1.10.0
 
 - fix: incorrect error handling when loading CA certificates
+- chore: update dependencies (golang 1.24)
 
 ## 1.9.0
 
