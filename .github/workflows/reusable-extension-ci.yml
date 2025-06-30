@@ -338,6 +338,7 @@ jobs:
       - name: Google Auth
         id: auth
         uses: 'google-github-actions/auth@v2'
+        if: github.event_name != 'pull_request'
         with:
           token_format: 'access_token'
           project_id: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_ID }}
@@ -347,6 +348,16 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
         with:
           version: latest
+
+      - name: "[build] attach linux packages to workflow"
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux Packages
+          path: |
+            ./dist/**/*.deb
+            ./dist/**/*.rpm
+          retention-days: 7
 
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
