@@ -285,6 +285,13 @@ jobs:
             VERSION=${{ steps.meta.outputs.version }}
             REVISION=${{ github.sha }}
 
+      - name: "[release] Create Github Release"
+        # If build_linux_packages is true, goreleaser will create the release
+        if: ${{ startsWith(github.ref, 'refs/tags/') && !inputs.build_linux_packages }}
+        run: gh release create ${{ github.ref_name }} --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   snyk-monitor:
     name: "[Release] Snyk Monitor latest"
     uses: steadybit/extension-kit/.github/workflows/reusable-snyk-scan.yml@main
