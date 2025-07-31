@@ -31,6 +31,10 @@ on:
         type: string
         required: false
         default: '1.24'
+      goreleaser_version:
+        type: string
+        required: false
+        default: 'latest'
       packages_with_index:
         type: boolean
         required: false
@@ -335,7 +339,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
+          version: ${{ inputs.goreleaser_version }}
           args: release --clean ${{ !startsWith(github.ref, 'refs/tags/') && '--snapshot' || '' }} ${{ github.event_name == 'pull_request' && '--skip sign' || '' }}
         env:
           NFPM_KEY_FILE: gpg.key
