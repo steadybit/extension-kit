@@ -37,7 +37,7 @@ jobs:
     steps:
       - name: Checkout repository
         if: ${{ env.snyk_available == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Snyk ${{ inputs.command }}
         if: ${{ env.snyk_available == 'true' }}
