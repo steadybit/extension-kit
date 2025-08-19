@@ -42,7 +42,7 @@ jobs:
       - name: Snyk ${{ inputs.command }}
         if: ${{ env.snyk_available == 'true' }}
         continue-on-error: true
-        uses: snyk/actions/golang@master
+        uses: snyk/actions/golang@master # NOSONAR githubactions:S7637 - verified action creator
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -52,7 +52,7 @@ jobs:
       - name: Snyk ${{ inputs.command }} docker image ${{ env.container_image }}
         if: ${{ env.snyk_available == 'true' }}
         continue-on-error: true
-        uses: snyk/actions/docker@master
+        uses: snyk/actions/docker@master # NOSONAR githubactions:S7637 - verified action creator
         with:
           image: ${{ env.container_image }}
           args: --file=Dockerfile --severity-threshold=${{ inputs.severity_threshold }} --project-name=${{ github.repository }} --target-reference=${{ inputs.target_ref || github.ref_name }}
