@@ -358,7 +358,7 @@ jobs:
           service_account: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_SA }}
           workload_identity_provider: ${{ secrets.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
 
-      - uses: google-github-actions/setup-gcloud@v2 # NOSONAR githubactions:S7637 - verified action creator
+      - uses: google-github-actions/setup-gcloud@v3 # NOSONAR githubactions:S7637 - verified action creator
         with:
           version: latest
 
