@@ -445,7 +445,7 @@ jobs:
         run: |
           helm repo add steadybit https://steadybit.github.io/helm-charts
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
