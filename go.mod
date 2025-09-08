@@ -1,6 +1,6 @@
 module github.com/steadybit/extension-kit
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/elastic/go-sysinfo v1.15.3
@@ -10,7 +10,7 @@ require (
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/sys v0.35.0
+	golang.org/x/sys v0.36.0
 )
 
 require (
