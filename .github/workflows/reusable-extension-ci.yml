@@ -350,7 +350,7 @@ jobs:
 
       - name: Google Auth
         id: auth
-        uses: google-github-actions/auth@v2  # NOSONAR githubactions:S7637 - verified action creator
+        uses: google-github-actions/auth@v3  # NOSONAR githubactions:S7637 - verified action creator
         if: github.event_name != 'pull_request'
         with:
           token_format: 'access_token'
