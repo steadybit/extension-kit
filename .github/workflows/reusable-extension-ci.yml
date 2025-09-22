@@ -181,7 +181,7 @@ jobs:
 
       - name: SonarCloud Scan
         if: ${{ env.sonar_available == 'true' }}
-        uses: sonarsource/sonarqube-scan-action@v5  # NOSONAR githubactions:S7637 - verified action creator
+        uses: sonarsource/sonarqube-scan-action@v6  # NOSONAR githubactions:S7637 - verified action creator
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
