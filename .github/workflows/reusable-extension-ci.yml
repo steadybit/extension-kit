@@ -364,7 +364,7 @@ jobs:
 
       - name: "[build] attach linux packages to workflow"
         if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Linux Packages
           path: |
