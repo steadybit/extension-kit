@@ -2,6 +2,8 @@ module github.com/steadybit/extension-kit
 
 go 1.24.0
 
+toolchain go1.25.4
+
 require (
 	github.com/elastic/go-sysinfo v1.15.4
 	github.com/google/uuid v1.6.0
@@ -20,7 +22,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/prometheus/procfs v0.19.2 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect

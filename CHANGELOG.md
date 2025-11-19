@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.1
+
+- chore: update dependencies
+
 ## 1.10.0
 
 - fix: incorrect error handling when loading CA certificates
