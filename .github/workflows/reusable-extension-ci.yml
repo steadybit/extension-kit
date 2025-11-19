@@ -375,9 +375,12 @@ jobs:
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
         working-directory: ./dist
+        env:
+          GCP_DEB_DEV_ARTIFACT_REGISTRY: ${{ inputs.gcp_deb_dev_artifact_registry }}
+          GCP_YUM_DEV_ARTIFACT_REGISTRY: ${{ inputs.gcp_yum_dev_artifact_registry }}
         run: |
           for deb in $(find * -name '*.deb'); do
-            ERROR=$(gcloud artifacts apt upload ${{ inputs.gcp_deb_dev_artifact_registry }} --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$deb 2>&1) || {
+            ERROR=$(gcloud artifacts apt upload $GCP_DEB_DEV_ARTIFACT_REGISTRY --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$deb 2>&1) || {
               echo "$ERROR"
               if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
                 echo "The package is already uploaded. Continuing..."
@@ -388,7 +391,7 @@ jobs:
             }
           done
           for rpm in $(find * -name '*.rpm'); do
-            ERROR=$(gcloud artifacts yum upload ${{ inputs.gcp_yum_dev_artifact_registry }} --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$rpm 2>&1) || {
+            ERROR=$(gcloud artifacts yum upload $GCP_YUM_DEV_ARTIFACT_REGISTRY --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$rpm 2>&1) || {
               echo "$ERROR"
               if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
                 echo "The package is already uploaded. Continuing..."
@@ -402,9 +405,12 @@ jobs:
       - name: "[release] Upload packages to gcp public repositories"
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         working-directory: ./dist
+        env:
+          GCP_DEB_PUBLIC_ARTIFACT_REGISTRY: ${{ inputs.gcp_deb_public_artifact_registry }}
+          GCP_YUM_PUBLIC_ARTIFACT_REGISTRY: ${{ inputs.gcp_yum_public_artifact_registry }}
         run: |
           for deb in $(find * -name '*.deb'); do
-            ERROR=$(gcloud artifacts apt upload ${{ inputs.gcp_deb_public_artifact_registry }} --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$deb 2>&1) || {
+            ERROR=$(gcloud artifacts apt upload $GCP_DEB_PUBLIC_ARTIFACT_REGISTRY --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$deb 2>&1) || {
               echo "$ERROR"
               if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
                 echo "The package is already uploaded. Continuing..."
@@ -415,7 +421,7 @@ jobs:
             }
           done
           for rpm in $(find * -name '*.rpm'); do
-            ERROR=$(gcloud artifacts yum upload ${{ inputs.gcp_yum_public_artifact_registry }} --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$rpm 2>&1) || {
+            ERROR=$(gcloud artifacts yum upload $GCP_YUM_PUBLIC_ARTIFACT_REGISTRY --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$rpm 2>&1) || {
               echo "$ERROR"
               if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
                 echo "The package is already uploaded. Continuing..."
