@@ -30,7 +30,7 @@ on:
       go_version:
         type: string
         required: false
-        default: '1.24'
+        default: '1.25'
       goreleaser_version:
         type: string
         required: false
@@ -564,7 +564,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '^1.25.4'
 
       - name: Extract tag from GITHUB_REF
         id: get_tag
