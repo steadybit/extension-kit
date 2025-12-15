@@ -173,7 +173,7 @@ jobs:
           command: test
 
       - name: Download e2e coverage files
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           path: e2e
           pattern: "e2e-coverage-*"
