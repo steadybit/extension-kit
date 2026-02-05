@@ -359,6 +359,7 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
 
       - uses: google-github-actions/setup-gcloud@v3 # NOSONAR githubactions:S7637 - verified action creator
+        if: github.event_name == 'pull_request'
         with:
           version: latest
 
