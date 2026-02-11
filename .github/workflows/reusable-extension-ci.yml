@@ -565,7 +565,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '^1.25.4'
+          go-version: ${{ inputs.go_version }}
 
       - name: Extract tag from GITHUB_REF
         id: get_tag
