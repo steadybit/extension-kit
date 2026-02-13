@@ -5,9 +5,14 @@
 package exthttp
 
 import (
+	"compress/gzip"
+	"github.com/klauspost/compress/gzhttp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -206,4 +211,42 @@ func TestWriteBody(t *testing.T) {
 			assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 		})
 	}
+}
+
+func TestGzipHandler(t *testing.T) {
+	largeBody := `{"data":"` + strings.Repeat("x", 1500) + `"}`
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(largeBody))
+	})
+
+	t.Run("should compress response when Accept-Encoding gzip is set", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("Accept-Encoding", "gzip")
+		rr := httptest.NewRecorder()
+
+		gzhttp.GzipHandler(inner).ServeHTTP(rr, req)
+
+		assert.Equal(t, 200, rr.Code)
+		assert.Equal(t, "gzip", rr.Header().Get("Content-Encoding"))
+
+		gr, err := gzip.NewReader(rr.Body)
+		require.NoError(t, err)
+		defer gr.Close()
+		body, err := io.ReadAll(gr)
+		require.NoError(t, err)
+		assert.Equal(t, largeBody, string(body))
+	})
+
+	t.Run("should not compress response when Accept-Encoding gzip is not set", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		rr := httptest.NewRecorder()
+
+		gzhttp.GzipHandler(inner).ServeHTTP(rr, req)
+
+		assert.Equal(t, 200, rr.Code)
+		assert.Empty(t, rr.Header().Get("Content-Encoding"))
+		assert.Equal(t, largeBody, rr.Body.String())
+	})
 }

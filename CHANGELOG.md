@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.2
+
+- feat: support compression of http responses
+
 ## 1.10.1
 
 - chore: update dependencies
