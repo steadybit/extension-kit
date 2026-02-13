@@ -9,6 +9,7 @@ package exthttp
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/klauspost/compress/gzhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
@@ -24,14 +25,14 @@ import (
 
 type Handler func(w http.ResponseWriter, r *http.Request, body []byte)
 
-// RegisterHttpHandler registers a handler for the given path. Also adds panic recovery and request logging around the handler.
+// RegisterHttpHandler registers a handler for the given path. Also adds panic recovery, gzip compression and request logging around the handler.
 func RegisterHttpHandler(path string, handler Handler) {
-	http.Handle(path, PanicRecovery(LogRequest(handler)))
+	http.Handle(path, PanicRecovery(gzhttp.GzipHandler(LogRequest(handler))))
 }
 
-// RegisterHttpHandlerWithLogLevel registers a handler for the given path. Also adds panic recovery and request logging with a given log level around the handler.
+// RegisterHttpHandlerWithLogLevel registers a handler for the given path. Also adds panic recovery, gzip compression and request logging with a given log level around the handler.
 func RegisterHttpHandlerWithLogLevel(path string, handler Handler, defaultLevel zerolog.Level) {
-	http.Handle(path, PanicRecovery(LogRequestWithDefaultLogLevel(handler, defaultLevel)))
+	http.Handle(path, PanicRecovery(gzhttp.GzipHandler(LogRequestWithDefaultLogLevel(handler, defaultLevel))))
 }
 
 // GetterAsHandler turns a getter function into a handler function. Typically used in combination with the RegisterHttpHandler function.
