@@ -9,30 +9,31 @@ package exthttp
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/klauspost/compress/gzhttp"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/hlog"
-	"github.com/rs/zerolog/log"
-	"github.com/steadybit/extension-kit"
-	"github.com/steadybit/extension-kit/extutil"
 	"io"
 	"net/http"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/klauspost/compress/gzhttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/hlog"
+	"github.com/rs/zerolog/log"
+	"github.com/steadybit/extension-kit"
+	"github.com/steadybit/extension-kit/extutil"
 )
 
 type Handler func(w http.ResponseWriter, r *http.Request, body []byte)
 
 // RegisterHttpHandler registers a handler for the given path. Also adds panic recovery, gzip compression and request logging around the handler.
 func RegisterHttpHandler(path string, handler Handler) {
-	http.Handle(path, PanicRecovery(gzhttp.GzipHandler(LogRequest(handler))))
+	RegisterHttpHandlerWithLogLevel(path, handler, zerolog.InfoLevel)
 }
 
 // RegisterHttpHandlerWithLogLevel registers a handler for the given path. Also adds panic recovery, gzip compression and request logging with a given log level around the handler.
 func RegisterHttpHandlerWithLogLevel(path string, handler Handler, defaultLevel zerolog.Level) {
-	http.Handle(path, PanicRecovery(gzhttp.GzipHandler(LogRequestWithDefaultLogLevel(handler, defaultLevel))))
+	http.Handle(path, PanicRecovery(gzhttp.GzipHandler(RequestTimeoutHeaderAware(LogRequestWithDefaultLogLevel(handler, defaultLevel)))))
 }
 
 // GetterAsHandler turns a getter function into a handler function. Typically used in combination with the RegisterHttpHandler function.
@@ -56,26 +57,22 @@ func PanicRecovery(next http.Handler) http.Handler {
 	})
 }
 
-func RequestTimeoutHeaderAware(next func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
+func RequestTimeoutHeaderAware(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		timeout := r.Header.Get("Request-Timeout")
 		if timeout == "" {
 			timeout = r.Header.Get("X-Request-Timeout")
 		}
+		decorated := next
 		if timeout != "" {
 			timeoutValue, err := strconv.ParseFloat(timeout, 32)
-			if err == nil {
+			if err == nil && timeoutValue > 0.0 {
 				log.Trace().Msgf("Using handler timeout %.1fs", timeoutValue)
-				http.TimeoutHandler(http.HandlerFunc(next), time.Duration(timeoutValue*1000)*time.Millisecond, "Request timed out.").ServeHTTP(w, r)
-				return
+				decorated = http.TimeoutHandler(next, time.Duration(timeoutValue*1000)*time.Millisecond, "Timeout")
 			}
 		}
-		next(w, r)
+		decorated.ServeHTTP(w, r)
 	}
-}
-
-func LogRequest(next Handler) http.Handler {
-	return LogRequestWithDefaultLogLevel(next, zerolog.InfoLevel)
 }
 
 func LogRequestWithDefaultLogLevel(next Handler, defaultLevel zerolog.Level) http.Handler {
@@ -141,7 +138,7 @@ func WriteError(w http.ResponseWriter, err extension_kit.ExtensionError) {
 func WriteBody(w http.ResponseWriter, response any) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Err(err).Msgf("Failed to response body")
+		log.Err(err).Msgf("Failed to write response body")
 		w.WriteHeader(500)
 		return
 	}
