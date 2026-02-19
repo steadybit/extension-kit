@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.3
+
+- feat: apply timeout on requests with "Request-Timeout" header is present
+
 ## 1.10.2
 
 - feat: support compression of http responses
