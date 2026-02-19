@@ -6,15 +6,16 @@ package exthttp
 
 import (
 	"compress/gzip"
-	"github.com/klauspost/compress/gzhttp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/klauspost/compress/gzhttp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRequestTimeoutHeaderAware(t *testing.T) {
@@ -63,14 +64,14 @@ func TestRequestTimeoutHeaderAware(t *testing.T) {
 	}
 }
 
-func handler(t *testing.T, wantsDeadline bool) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
+func handler(t *testing.T, wantsDeadline bool) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(1 * time.Second)
 		w.WriteHeader(200)
 		if _, ok := r.Context().Deadline(); wantsDeadline != ok {
 			t.Errorf("Expected request context to have a deadline, but it didn't")
 		}
-	}
+	})
 }
 
 func TestIfNoneMatchHandler(t *testing.T) {
