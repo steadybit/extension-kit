@@ -13,9 +13,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog/log"
-	"github.com/steadybit/extension-kit/extsignals"
 	stdLog "log"
 	"net"
 	"net/http"
@@ -25,6 +22,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kelseyhightower/envconfig"
+	"github.com/rs/zerolog/log"
+	"github.com/steadybit/extension-kit/extsignals"
 )
 
 type ListenSpecification struct {
@@ -198,8 +199,9 @@ type forwardToZeroLogWriter struct {
 func (fw *forwardToZeroLogWriter) Write(p []byte) (n int, err error) {
 	trimmed := strings.Trim(string(p), " \t\n\r")
 	if strings.Contains(trimmed, "TLS handshake error") &&
-		strings.Contains(trimmed, "unknown certificate") || strings.Contains(trimmed, "client didn't provide a certificate") {
-		// Ignore/only log on debug TLS handshake errors when client did not provide a certificate
+		strings.Contains(trimmed, "unknown certificate") ||
+		strings.Contains(trimmed, "client didn't provide a certificate") ||
+		strings.Contains(trimmed, "EOF") {
 		log.Debug().Msg(trimmed)
 	} else {
 		log.Error().Msg(trimmed)
