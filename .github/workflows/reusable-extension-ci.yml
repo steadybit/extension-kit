@@ -338,7 +338,7 @@ jobs:
           echo -n "$SECRET" > gpg.key
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6  # NOSONAR githubactions:S7637 - verified action creator
+        uses: goreleaser/goreleaser-action@v7  # NOSONAR githubactions:S7637 - verified action creator
         with:
           distribution: goreleaser
           version: ${{ inputs.goreleaser_version }}
