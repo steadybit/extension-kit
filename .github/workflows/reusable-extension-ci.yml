@@ -235,7 +235,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5 # NOSONAR githubactions:S7637 - verified action creator
+        uses: docker/metadata-action@v6 # NOSONAR githubactions:S7637 - verified action creator
         with:
           images: ghcr.io/${{ github.repository }}
 
