@@ -241,7 +241,7 @@ jobs:
 
       - name: "[release] Build Docker image release candidate"
         if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
-        uses: docker/build-push-action@v6 # NOSONAR githubactions:S7637 - verified action creator
+        uses: docker/build-push-action@v7 # NOSONAR githubactions:S7637 - verified action creator
         with:
           context: ./
           push: false
@@ -276,7 +276,7 @@ jobs:
 #            SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6 # NOSONAR githubactions:S7637 - verified action creator
+        uses: docker/build-push-action@v7 # NOSONAR githubactions:S7637 - verified action creator
         with:
           context: ./
           push: ${{ inputs.force_push_docker_image || github.event_name != 'pull_request' }}
