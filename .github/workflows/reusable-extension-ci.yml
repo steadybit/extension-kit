@@ -227,7 +227,7 @@ jobs:
 
       - name: Log in to the container registry
         if: inputs.force_push_docker_image || github.event_name != 'pull_request'
-        uses: docker/login-action@v3 # NOSONAR githubactions:S7637 - verified action creator
+        uses: docker/login-action@v4 # NOSONAR githubactions:S7637 - verified action creator
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
