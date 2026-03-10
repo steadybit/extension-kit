@@ -223,7 +223,7 @@ jobs:
         uses: docker/setup-qemu-action@v4 # NOSONAR githubactions:S7637 - verified action creator
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3 # NOSONAR githubactions:S7637 - verified action creator
+        uses: docker/setup-buildx-action@v4 # NOSONAR githubactions:S7637 - verified action creator
 
       - name: Log in to the container registry
         if: inputs.force_push_docker_image || github.event_name != 'pull_request'
