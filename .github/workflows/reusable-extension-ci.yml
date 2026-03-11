@@ -348,21 +348,6 @@ jobs:
           NFPM_DEFAULT_PASSPHRASE: ${{ secrets.MAVEN_GPG_PRIVATE_KEY_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN_GORELEASER }}
 
-      - name: Google Auth
-        id: auth
-        uses: google-github-actions/auth@v3  # NOSONAR githubactions:S7637 - verified action creator
-        if: github.event_name != 'pull_request'
-        with:
-          token_format: 'access_token'
-          project_id: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_ID }}
-          service_account: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_SA }}
-          workload_identity_provider: ${{ secrets.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
-
-      - uses: google-github-actions/setup-gcloud@v3 # NOSONAR githubactions:S7637 - verified action creator
-        if: github.event_name == 'pull_request'
-        with:
-          version: latest
-
       - name: "[build] attach linux packages to workflow"
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v7
@@ -375,63 +360,27 @@ jobs:
 
       - name: "[build] Upload packages to gcp internal repositories"
         if: github.event_name != 'pull_request'
-        working-directory: ./dist
-        env:
-          GCP_DEB_DEV_ARTIFACT_REGISTRY: ${{ inputs.gcp_deb_dev_artifact_registry }}
-          GCP_YUM_DEV_ARTIFACT_REGISTRY: ${{ inputs.gcp_yum_dev_artifact_registry }}
-        run: |
-          for deb in $(find * -name '*.deb'); do
-            ERROR=$(gcloud artifacts apt upload $GCP_DEB_DEV_ARTIFACT_REGISTRY --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$deb 2>&1) || {
-              echo "$ERROR"
-              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
-                echo "The package is already uploaded. Continuing..."
-              else
-                echo "Package installation failed for a different reason."
-                exit 1
-              fi
-            }
-          done
-          for rpm in $(find * -name '*.rpm'); do
-            ERROR=$(gcloud artifacts yum upload $GCP_YUM_DEV_ARTIFACT_REGISTRY --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$rpm 2>&1) || {
-              echo "$ERROR"
-              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
-                echo "The package is already uploaded. Continuing..."
-              else
-                echo "Package installation failed for a different reason."
-                exit 1
-              fi
-            }
-          done
+        uses: steadybit/.github/actions/gar-upload-linux-packages@main
+        with:
+          workload_identity_provider: ${{ secrets.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_SA }}
+          project_id: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_ID }}
+          location: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }}
+          deb_repository: ${{ inputs.gcp_deb_dev_artifact_registry }}
+          yum_repository: ${{ inputs.gcp_yum_dev_artifact_registry }}
+          packages_dir: ./dist
 
       - name: "[release] Upload packages to gcp public repositories"
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
-        working-directory: ./dist
-        env:
-          GCP_DEB_PUBLIC_ARTIFACT_REGISTRY: ${{ inputs.gcp_deb_public_artifact_registry }}
-          GCP_YUM_PUBLIC_ARTIFACT_REGISTRY: ${{ inputs.gcp_yum_public_artifact_registry }}
-        run: |
-          for deb in $(find * -name '*.deb'); do
-            ERROR=$(gcloud artifacts apt upload $GCP_DEB_PUBLIC_ARTIFACT_REGISTRY --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$deb 2>&1) || {
-              echo "$ERROR"
-              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
-                echo "The package is already uploaded. Continuing..."
-              else
-                echo "Package installation failed for a different reason."
-                exit 1
-              fi
-            }
-          done
-          for rpm in $(find * -name '*.rpm'); do
-            ERROR=$(gcloud artifacts yum upload $GCP_YUM_PUBLIC_ARTIFACT_REGISTRY --location=${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }} --source=$rpm 2>&1) || {
-              echo "$ERROR"
-              if echo "$ERROR" | grep -q 'updated packages must bear a new version'; then
-                echo "The package is already uploaded. Continuing..."
-              else
-                echo "Package installation failed for a different reason."
-                exit 1
-              fi
-            }
-          done 
+        uses: steadybit/.github/actions/gar-upload-linux-packages@main
+        with:
+          workload_identity_provider: ${{ secrets.GCP_ARTIFACT_REGISTRY_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_SA }}
+          project_id: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_ID }}
+          location: ${{ vars.GCP_ARTIFACT_REGISTRY_PROJECT_LOCATION }}
+          deb_repository: ${{ inputs.gcp_deb_public_artifact_registry }}
+          yum_repository: ${{ inputs.gcp_yum_public_artifact_registry }}
+          packages_dir: ./dist
 
   test-helm-charts:
     name: "Test Helm Charts"
