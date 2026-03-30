@@ -11,7 +11,7 @@ require (
 	github.com/klauspost/compress v1.18.5
 	github.com/madflojo/testcerts v1.5.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
-	github.com/rs/zerolog v1.34.0
+	github.com/rs/zerolog v1.35.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sys v0.42.0
 )
