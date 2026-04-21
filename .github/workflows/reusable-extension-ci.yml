@@ -219,6 +219,24 @@ jobs:
         run: |
           git tag -d $(git tag -l | grep -v "^v[0-9]*.[0-9]*.[0-9]*")
 
+      - name: Compute snapshot version
+        id: compute_version
+        # Mirrors goreleaser's snapshot template
+        # "{{ incpatch .Version }}-{{ .CommitTimestamp }}-next" so the binary's
+        # ldflags version (computed by goreleaser inside the Dockerfile) and the
+        # VERSION build-arg (computed here) derive identically from the same
+        # commit. Can be replaced when we implement BM 16299
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            latest=$(git describe --tags --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || echo "v0.0.0")
+            IFS=. read -r maj min pat <<<"${latest#v}"
+            VERSION="${maj}.${min}.$((pat + 1))-$(git log -1 --format=%ct)-next"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Computed version: ${VERSION}"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4 # NOSONAR githubactions:S7637 - verified action creator
 
@@ -250,7 +268,7 @@ jobs:
           build-args: |
             BUILD_SNAPSHOT=${{ !startsWith(github.ref, 'refs/tags/') }}
             NAME=${{ github.repository }}
-            VERSION=${{ steps.meta.outputs.version }}
+            VERSION=${{ steps.compute_version.outputs.version }}
             REVISION=${{ github.sha }}
 
       - name: "[release] Snyk monitor docker image release candidate"
@@ -280,13 +298,15 @@ jobs:
         with:
           context: ./
           push: ${{ inputs.force_push_docker_image || github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ${{ !startsWith(github.ref, 'refs/tags/') && format('ghcr.io/{0}:{1}', github.repository, steps.compute_version.outputs.version) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           build-args: |
             BUILD_SNAPSHOT=${{ !startsWith(github.ref, 'refs/tags/') }}
             NAME=${{ github.repository }}
-            VERSION=${{ steps.meta.outputs.version }}
+            VERSION=${{ steps.compute_version.outputs.version }}
             REVISION=${{ github.sha }}
 
       - name: "[release] Create Github Release"
