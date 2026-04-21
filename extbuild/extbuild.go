@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var semverPattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
+var semverPattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
 
 var ExtensionName string = "unknown"
 var Version string = "unknown"

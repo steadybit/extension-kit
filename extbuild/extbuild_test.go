@@ -33,6 +33,16 @@ func TestGetSemverVersionStringOrUnknown(t *testing.T) {
 			given: "11.22.33",
 			want:  "11.22.33",
 		},
+		{
+			name:  "semver with pre-release-identifier",
+			given: "1.0.20-1776424247-next",
+			want:  "1.0.20-1776424247-next",
+		},
+		{
+			name:  "semver with pre-release-identifier (variant)",
+			given: "1.0.20-next.1776424247",
+			want:  "1.0.20-next.1776424247",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

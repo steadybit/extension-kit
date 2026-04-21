@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.4
+
+- fix: support pre-release identifiers in version strings returned by `extbuild.GetSemverVersionStringOrUnknown()`
+
 ## 1.10.3
 
 - feat: apply timeout on requests with "Request-Timeout" header is present
