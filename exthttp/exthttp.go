@@ -22,6 +22,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/steadybit/extension-kit"
 	"github.com/steadybit/extension-kit/extutil"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type Handler func(w http.ResponseWriter, r *http.Request, body []byte)
@@ -33,7 +34,12 @@ func RegisterHttpHandler(path string, handler Handler) {
 
 // RegisterHttpHandlerWithLogLevel registers a handler for the given path. Also adds panic recovery, gzip compression and request logging with a given log level around the handler.
 func RegisterHttpHandlerWithLogLevel(path string, handler Handler, defaultLevel zerolog.Level) {
-	http.Handle(path, PanicRecovery(gzhttp.GzipHandler(RequestTimeoutHeaderAware(LogRequestWithDefaultLogLevel(handler, defaultLevel)))))
+	chain := PanicRecovery(gzhttp.GzipHandler(RequestTimeoutHeaderAware(LogRequestWithDefaultLogLevel(handler, defaultLevel))))
+	http.Handle(path, otelhttp.NewHandler(chain, "",
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+			return r.Method + " " + path
+		}),
+	))
 }
 
 // GetterAsHandler turns a getter function into a handler function. Typically used in combination with the RegisterHttpHandler function.
