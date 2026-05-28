@@ -1,14 +1,12 @@
 # Changelog
 
-<<<<<<< Updated upstream
-## 1.10.4
-
-- fix: support pre-release identifiers in version strings returned by `extbuild.GetSemverVersionStringOrUnknown()`
-=======
 ## (next)
 
 - Bump Go to 1.25.9
->>>>>>> Stashed changes
+
+## 1.10.4
+
+- fix: support pre-release identifiers in version strings returned by `extbuild.GetSemverVersionStringOrUnknown()`
 
 ## 1.10.3
 
@@ -62,7 +60,7 @@ a# 1.8.17
 ## 1.8.15
 
 - feat: add error details to recovery handler
-- feat: add MustHaveValue helper 
+- feat: add MustHaveValue helper
 
 ## 1.8.14
 
