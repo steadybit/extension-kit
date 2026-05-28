@@ -1,8 +1,14 @@
 # Changelog
 
+<<<<<<< Updated upstream
 ## 1.10.4
 
 - fix: support pre-release identifiers in version strings returned by `extbuild.GetSemverVersionStringOrUnknown()`
+=======
+## (next)
+
+- Bump Go to 1.25.9
+>>>>>>> Stashed changes
 
 ## 1.10.3
 

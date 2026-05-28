@@ -75,7 +75,7 @@ on:
         type: string
         required: false
         default: false
-        description: | 
+        description: |
           Github app ID to use for version bump
       coverage_artifacts_pattern:
         type: string
@@ -461,7 +461,7 @@ jobs:
 
       # this commit will effectively cause another run of the workflow which then actually performs the helm chart release
       - run: |
-          npm install --ignore-scripts -g semver
+          npm install --ignore-scripts -g semver@7.8.1
           make chart-bump-version APP_VERSION="${{ needs.build-images.outputs.version }}"
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
