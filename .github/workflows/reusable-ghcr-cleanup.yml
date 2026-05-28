@@ -34,15 +34,15 @@ jobs:
           keep-n-untagged: 10
           validate: true
 
-      - name: Delete all images older than 3 years
+      - name: Delete all images older than 1 year
         uses: dataaxiom/ghcr-cleanup-action@f092b48ba3b604b2a83690dc4b2bbb3392e1045f # v1.2.1
         with:
           token: ${{ secrets.token }}
           owner: ${{ github.repository_owner }}
           package: ${{ github.event.repository.name }}
-          dry-run: true # TODO: forced dry-run while validating the 3-year cleanup; revert to ${{ inputs.dry-run }} once confirmed
-          # No exclude-tags here: even release/main/latest tags are deleted once older than 3 years.
-          older-than: 3 years
+          dry-run: true # TODO: forced dry-run while validating the 1-year cleanup; revert to ${{ inputs.dry-run }} once confirmed
+          # No exclude-tags here: even release/main/latest tags are deleted once older than 1 year.
+          older-than: 1 year
           keep-n-tagged: 0
           delete-untagged: true
           validate: true
