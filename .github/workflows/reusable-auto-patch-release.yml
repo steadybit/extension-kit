@@ -1,0 +1,224 @@
+##
+# This workflow is intended to run on a weekly schedule (Mondays).
+# It cuts a patch release if all commits since the latest version tag are
+# "safe" (dependabot bumps, trivyignore-only changes, the auto-emitted
+# chart-version bump). Otherwise it skips and reports the reason to Slack.
+#
+# The pushed tag triggers each repo's existing ci.yml (push.tags: 'v*'),
+# which runs the existing reusable CI -> GoReleaser -> full release.
+##
+
+name: auto-patch-release
+
+on:
+  workflow_call:
+    inputs:
+      VERSION_BUMPER_APPID:
+        type: string
+        required: true
+        description: GitHub App ID used to bypass branch protection on main
+      dry_run:
+        type: boolean
+        default: false
+        description: If true, evaluate and log the would-be release without committing, tagging, pushing, or notifying Slack
+      force_release:
+        type: boolean
+        default: false
+        description: If true, release even when the commit range contains unsafe commits — intended for manual recovery runs
+      slack_channel:
+        type: string
+        default: C02K21Y6H5Y
+        description: Slack channel ID to override in the webhook payload (default = #sig-development)
+    secrets:
+      VERSION_BUMPER_SECRET:
+        required: true
+        description: Private key of the GitHub App matching VERSION_BUMPER_APPID
+      SLACK_WEBHOOK_URL:
+        required: true
+        description: Existing org-level Slack webhook URL
+
+concurrency:
+  group: auto-patch-release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  auto-patch-release:
+    name: Evaluate and cut patch release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Generate app token
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ inputs.VERSION_BUMPER_APPID }}
+          private-key: ${{ secrets.VERSION_BUMPER_SECRET }}
+
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Determine latest version tag
+        id: latest
+        run: |
+          set -euo pipefail
+          tag=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -1)
+          if [ -z "$tag" ]; then
+            echo "::error::No version tag matching v[0-9]*.[0-9]*.[0-9]* found"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Latest version tag: $tag"
+
+      - name: Evaluate commits since latest tag
+        id: evaluate
+        env:
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+          FORCE_RELEASE: ${{ inputs.force_release }}
+        run: |
+          set -euo pipefail
+
+          commits=$(git log --no-merges --format='%H' "${LATEST_TAG}..HEAD" || true)
+          if [ -z "$commits" ]; then
+            echo "outcome=no-commits" >> "$GITHUB_OUTPUT"
+            echo "commit_count=0" >> "$GITHUB_OUTPUT"
+            echo "No non-merge commits since ${LATEST_TAG}"
+            exit 0
+          fi
+
+          count=0
+          unsafe_sha=""
+          while IFS= read -r sha; do
+            [ -z "$sha" ] && continue
+            count=$((count + 1))
+            author_email=$(git log -1 --format='%ae' "$sha")
+            subject=$(git log -1 --format='%s' "$sha")
+            files=$(git diff-tree --no-commit-id --name-only -r "$sha")
+
+            if [[ "$author_email" == *"dependabot[bot]"* ]]; then
+              echo "  safe (dependabot)      $sha  $subject"
+              continue
+            fi
+            if [[ "$subject" == "chore(deps):"* ]]; then
+              echo "  safe (chore(deps))     $sha  $subject"
+              continue
+            fi
+            if [[ "$subject" == "chore(trivy):"* ]]; then
+              echo "  safe (chore(trivy))    $sha  $subject"
+              continue
+            fi
+            if [[ "$subject" == "docs:"* ]]; then
+              echo "  safe (docs)            $sha  $subject"
+              continue
+            fi
+            if [ "$subject" = "chore: update helm chart version" ]; then
+              echo "  safe (legacy chart-bump)  $sha  $subject"
+              continue
+            fi
+            if [ "$files" = ".trivyignore.yml" ]; then
+              echo "  safe (.trivyignore.yml only)  $sha  $subject"
+              continue
+            fi
+
+            echo "  UNSAFE                 $sha  $subject"
+            [ -z "$unsafe_sha" ] && unsafe_sha="$sha"
+          done <<< "$commits"
+
+          echo "commit_count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$FORCE_RELEASE" = "true" ] && [ -n "$unsafe_sha" ]; then
+            echo "FORCE_RELEASE: overriding ${count} commit(s) (first unsafe ${unsafe_sha}) to outcome=safe"
+            echo "outcome=safe" >> "$GITHUB_OUTPUT"
+          elif [ -n "$unsafe_sha" ]; then
+            echo "outcome=skip-unsafe" >> "$GITHUB_OUTPUT"
+            echo "unsafe_sha=${unsafe_sha:0:7}" >> "$GITHUB_OUTPUT"
+          else
+            echo "outcome=safe" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute next patch version
+        if: steps.evaluate.outputs.outcome == 'safe'
+        id: next
+        env:
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ver="${LATEST_TAG#v}"
+          IFS='.' read -r major minor patch <<< "$ver"
+          next="v${major}.${minor}.$((patch + 1))"
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+          echo "Next version: $next"
+
+      - name: Update CHANGELOG, commit & tag
+        if: steps.evaluate.outputs.outcome == 'safe' && !inputs.dry_run
+        env:
+          NEXT_VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -f CHANGELOG.md ]; then
+            echo "::error::CHANGELOG.md not found in repo root"
+            exit 1
+          fi
+          if ! head -1 CHANGELOG.md | grep -q '^# Changelog'; then
+            echo "::error::CHANGELOG.md does not start with '# Changelog'"
+            exit 1
+          fi
+
+          {
+            printf '# Changelog\n\n'
+            printf '## %s\n\n' "$NEXT_VERSION"
+            printf -- '- Update dependencies\n\n'
+            tail -n +3 CHANGELOG.md
+          } > CHANGELOG.md.new
+          mv CHANGELOG.md.new CHANGELOG.md
+
+          git add CHANGELOG.md
+          git commit -m "chore: update changelog for ${NEXT_VERSION}"
+          git tag "$NEXT_VERSION"
+          git push --atomic origin main "$NEXT_VERSION"
+
+      - name: Dry-run preview
+        if: steps.evaluate.outputs.outcome == 'safe' && inputs.dry_run
+        env:
+          NEXT_VERSION: ${{ steps.next.outputs.version }}
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+          COMMIT_COUNT: ${{ steps.evaluate.outputs.commit_count }}
+        run: |
+          echo "DRY RUN: would release ${NEXT_VERSION} (${COMMIT_COUNT} safe commits since ${LATEST_TAG})"
+          echo "DRY RUN: would prepend '## ${NEXT_VERSION}' / '- Update dependencies' to CHANGELOG.md"
+          echo "DRY RUN: would commit 'chore: update changelog for ${NEXT_VERSION}', tag ${NEXT_VERSION}, push atomically"
+          echo "DRY RUN: Slack notification suppressed"
+
+      - name: Notify Slack on release
+        if: steps.evaluate.outputs.outcome == 'safe' && !inputs.dry_run
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "channel": "${{ inputs.slack_channel }}",
+              "text": ":rocket: ${{ github.repository }} auto-released ${{ steps.next.outputs.version }} (${{ steps.evaluate.outputs.commit_count }} commits since ${{ steps.latest.outputs.tag }})"
+            }
+
+      - name: Notify Slack on skip-unsafe
+        if: steps.evaluate.outputs.outcome == 'skip-unsafe' && !inputs.dry_run
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "channel": "${{ inputs.slack_channel }}",
+              "text": ":no_entry_sign: ${{ github.repository }} skipped Monday auto-release: ${{ steps.evaluate.outputs.commit_count }} commit(s) since ${{ steps.latest.outputs.tag }}, first unsafe `${{ steps.evaluate.outputs.unsafe_sha }}` — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|details>"
+            }
