@@ -25,6 +25,10 @@ on:
         type: boolean
         default: false
         description: If true, release even when the commit range contains unsafe commits — intended for manual recovery runs
+      release_type:
+        type: string
+        default: patch
+        description: Which component of the version to bump — major, minor, or patch (default)
       slack_channel:
         type: string
         default: C02K21Y6H5Y
@@ -43,7 +47,7 @@ concurrency:
 
 jobs:
   auto-patch-release:
-    name: Evaluate and cut patch release
+    name: ${{ inputs.force_release && format('Force {0} release', inputs.release_type) || format('Auto {0} release', inputs.release_type) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -145,18 +149,24 @@ jobs:
             echo "outcome=safe" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Compute next patch version
+      - name: Compute next version
         if: steps.evaluate.outputs.outcome == 'safe'
         id: next
         env:
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
           set -euo pipefail
           ver="${LATEST_TAG#v}"
           IFS='.' read -r major minor patch <<< "$ver"
-          next="v${major}.${minor}.$((patch + 1))"
+          case "$RELEASE_TYPE" in
+            major) next="v$((major + 1)).0.0" ;;
+            minor) next="v${major}.$((minor + 1)).0" ;;
+            patch) next="v${major}.${minor}.$((patch + 1))" ;;
+            *)     echo "::error::Unknown release_type '$RELEASE_TYPE' (expected major|minor|patch)"; exit 1 ;;
+          esac
           echo "version=$next" >> "$GITHUB_OUTPUT"
-          echo "Next version: $next"
+          echo "Next version: $next (bump=$RELEASE_TYPE)"
 
       - name: Update CHANGELOG, commit & tag
         if: steps.evaluate.outputs.outcome == 'safe' && !inputs.dry_run
@@ -208,7 +218,7 @@ jobs:
           payload: |
             {
               "channel": "${{ inputs.slack_channel }}",
-              "text": ":rocket: ${{ github.repository }} auto-released ${{ steps.next.outputs.version }} (${{ steps.evaluate.outputs.commit_count }} commits since ${{ steps.latest.outputs.tag }})"
+              "text": ":rocket: ${{ github.repository }} ${{ inputs.force_release && 'released' || 'auto-released' }} ${{ steps.next.outputs.version }} (${{ steps.evaluate.outputs.commit_count }} commits since ${{ steps.latest.outputs.tag }})"
             }
 
       - name: Notify Slack on skip-unsafe
