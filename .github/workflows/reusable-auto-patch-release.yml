@@ -29,6 +29,13 @@ on:
         type: string
         default: patch
         description: Which component of the version to bump — major, minor, or patch (default)
+      changelog_ignore_regex:
+        type: string
+        default: '^chore(\(deps\))?: update helm chart version$|^docs:'
+        description: |
+          POSIX-extended regex (grep -vE) of commit subjects to exclude from the
+          CHANGELOG.md entries. Default skips the auto-emitted helm chart bump
+          (both legacy and current message) and docs-only commits.
       slack_channel:
         type: string
         default: C02K21Y6H5Y
@@ -149,14 +156,16 @@ jobs:
             echo "outcome=safe" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Compute next version
+      - name: Compute next version and changelog bullets
         if: steps.evaluate.outputs.outcome == 'safe'
         id: next
         env:
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
           RELEASE_TYPE: ${{ inputs.release_type }}
+          IGNORE_REGEX: ${{ inputs.changelog_ignore_regex }}
         run: |
           set -euo pipefail
+
           ver="${LATEST_TAG#v}"
           IFS='.' read -r major minor patch <<< "$ver"
           case "$RELEASE_TYPE" in
@@ -168,10 +177,25 @@ jobs:
           echo "version=$next" >> "$GITHUB_OUTPUT"
           echo "Next version: $next (bump=$RELEASE_TYPE)"
 
+          subjects=$(git log --no-merges --format='%s' "${LATEST_TAG}..HEAD")
+          if [ -n "$IGNORE_REGEX" ]; then
+            subjects=$(echo "$subjects" | grep -vE "$IGNORE_REGEX" || true)
+          fi
+          bullets=$(echo "$subjects" | sed '/^$/d' | sort -u | sed 's/^/- /')
+          [ -z "$bullets" ] && bullets="- Maintenance release"
+          echo "Changelog bullets:"
+          echo "$bullets" | sed 's/^/  /'
+          {
+            echo 'changelog<<CHANGELOG_EOF'
+            echo "$bullets"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Update CHANGELOG, commit & tag
         if: steps.evaluate.outputs.outcome == 'safe' && !inputs.dry_run
         env:
           NEXT_VERSION: ${{ steps.next.outputs.version }}
+          BULLETS: ${{ steps.next.outputs.changelog }}
         run: |
           set -euo pipefail
 
@@ -187,7 +211,7 @@ jobs:
           {
             printf '# Changelog\n\n'
             printf '## %s\n\n' "$NEXT_VERSION"
-            printf -- '- Update dependencies\n\n'
+            printf '%s\n\n' "$BULLETS"
             tail -n +3 CHANGELOG.md
           } > CHANGELOG.md.new
           mv CHANGELOG.md.new CHANGELOG.md
@@ -203,9 +227,13 @@ jobs:
           NEXT_VERSION: ${{ steps.next.outputs.version }}
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
           COMMIT_COUNT: ${{ steps.evaluate.outputs.commit_count }}
+          BULLETS: ${{ steps.next.outputs.changelog }}
         run: |
           echo "DRY RUN: would release ${NEXT_VERSION} (${COMMIT_COUNT} safe commits since ${LATEST_TAG})"
-          echo "DRY RUN: would prepend '## ${NEXT_VERSION}' / '- Update dependencies' to CHANGELOG.md"
+          echo "DRY RUN: would prepend the following section to CHANGELOG.md:"
+          printf '  ## %s\n\n' "$NEXT_VERSION"
+          echo "$BULLETS" | sed 's/^/  /'
+          echo ""
           echo "DRY RUN: would commit 'chore: update changelog for ${NEXT_VERSION}', tag ${NEXT_VERSION}, push atomically"
           echo "DRY RUN: Slack notification suppressed"
 
