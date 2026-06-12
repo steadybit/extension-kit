@@ -136,10 +136,6 @@ jobs:
               echo "  safe (chore(deps))     $sha  $subject"
               continue
             fi
-            if [[ "$subject" == "chore(trivy):"* ]]; then
-              echo "  safe (chore(trivy))    $sha  $subject"
-              continue
-            fi
             if [[ "$subject" == "docs:"* ]]; then
               echo "  safe (docs)            $sha  $subject"
               continue
