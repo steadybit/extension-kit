@@ -33,9 +33,12 @@ on:
         type: string
         default: '^chore(\(deps\))?: update helm chart version$|^docs:|^chore: update (\.)?trivy|^chore\(trivy\):'
         description: |
-          POSIX-extended regex (grep -vE) of commit subjects to exclude from the
-          CHANGELOG.md entries. Default skips the auto-emitted helm chart bump
-          (both legacy and current message) and docs-only commits.
+          POSIX-extended regex of commit subjects to ignore. Matched commits
+          are treated as non-events — they neither trigger a release nor
+          appear in CHANGELOG.md. If every commit in the range matches, the
+          workflow silently exits with no-commits. Default skips the
+          auto-emitted helm chart bumps (legacy and current message), docs
+          commits, and trivy-ignore-list updates.
       slack_channel:
         type: string
         default: C0BA547TUKC
@@ -96,6 +99,7 @@ jobs:
         env:
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
           FORCE_RELEASE: ${{ inputs.force_release }}
+          IGNORE_REGEX: ${{ inputs.changelog_ignore_regex }}
         run: |
           set -euo pipefail
 
@@ -108,12 +112,20 @@ jobs:
           fi
 
           count=0
+          ignored=0
           unsafe_sha=""
           while IFS= read -r sha; do
             [ -z "$sha" ] && continue
-            count=$((count + 1))
             author_email=$(git log -1 --format='%ae' "$sha")
             subject=$(git log -1 --format='%s' "$sha")
+
+            if [ -n "$IGNORE_REGEX" ] && echo "$subject" | grep -qE "$IGNORE_REGEX"; then
+              echo "  ignored                $sha  $subject"
+              ignored=$((ignored + 1))
+              continue
+            fi
+
+            count=$((count + 1))
             files=$(git diff-tree --no-commit-id --name-only -r "$sha")
 
             if [[ "$author_email" == *"dependabot[bot]"* ]]; then
@@ -144,6 +156,13 @@ jobs:
             echo "  UNSAFE                 $sha  $subject"
             [ -z "$unsafe_sha" ] && unsafe_sha="$sha"
           done <<< "$commits"
+
+          if [ "$count" -eq 0 ]; then
+            echo "outcome=no-commits" >> "$GITHUB_OUTPUT"
+            echo "commit_count=0" >> "$GITHUB_OUTPUT"
+            echo "No releasable commits since ${LATEST_TAG} (${ignored} ignored)"
+            exit 0
+          fi
 
           echo "commit_count=$count" >> "$GITHUB_OUTPUT"
           if [ "$FORCE_RELEASE" = "true" ] && [ -n "$unsafe_sha" ]; then
