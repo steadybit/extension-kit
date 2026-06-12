@@ -38,8 +38,8 @@ on:
           (both legacy and current message) and docs-only commits.
       slack_channel:
         type: string
-        default: C02K21Y6H5Y
-        description: Slack channel ID to override in the webhook payload (default = #sig-development)
+        default: C0BA547TUKC
+        description: Slack channel ID to override in the webhook payload (default = #sig-releases)
     secrets:
       VERSION_BUMPER_SECRET:
         required: true
