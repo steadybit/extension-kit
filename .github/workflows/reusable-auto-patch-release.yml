@@ -31,7 +31,7 @@ on:
         description: Which component of the version to bump — major, minor, or patch (default)
       changelog_ignore_regex:
         type: string
-        default: '^chore(\(deps\))?: update helm chart version$|^docs:|^chore: update (\.)?trivy|^chore\(trivy\):'
+        default: '^chore(\(deps\))?: update helm chart version$|^docs:|^test:|^chore: update (\.)?trivy|^chore\(trivy\):'
         description: |
           POSIX-extended regex of commit subjects to ignore. Matched commits
           are treated as non-events — they neither trigger a release nor
