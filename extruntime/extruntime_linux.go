@@ -5,8 +5,10 @@ package extruntime
 import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sys/unix"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -15,6 +17,11 @@ import (
 const oomScoreAdjPath = "/proc/self/oom_score_adj"
 
 func adjustOOMScoreAdj(score int) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	raiseSysResourceCapability()
+
 	previous := strings.TrimSpace(readOOMScoreAdj())
 
 	if err := os.WriteFile(oomScoreAdjPath, []byte(strconv.Itoa(score)+"\n"), 0644); err != nil {
@@ -23,6 +30,28 @@ func adjustOOMScoreAdj(score int) {
 	}
 
 	log.Info().Int("oom_score_adj", score).Str("previous", previous).Msg("Adjusted oom_score_adj to protect extension from the OOM killer")
+}
+
+// raiseSysResourceCapability best-effort moves CAP_SYS_RESOURCE from the permitted to the
+// effective set of the current OS thread. This lets a non-root extension that carries the
+// capability as a file capability (setcap cap_sys_resource=+p) lower its oom_score_adj without
+// running as root. The caller must lock the OS thread, since capabilities are per-thread and the
+// write to oom_score_adj has to happen on the same thread. If the capability is not in the
+// permitted set, this is a no-op and the subsequent write fails gracefully with a warning.
+func raiseSysResourceCapability() {
+	hdr := unix.CapUserHeader{Version: unix.LINUX_CAPABILITY_VERSION_3}
+	data := [2]unix.CapUserData{}
+	if err := unix.Capget(&hdr, &data[0]); err != nil {
+		return
+	}
+
+	bit := uint32(1) << uint(unix.CAP_SYS_RESOURCE)
+	if data[0].Permitted&bit == 0 {
+		return
+	}
+
+	data[0].Effective |= bit
+	_ = unix.Capset(&hdr, &data[0])
 }
 
 func readOOMScoreAdj() string {
