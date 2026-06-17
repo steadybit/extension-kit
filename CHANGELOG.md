@@ -2,6 +2,7 @@
 
 ## (next)
 
+- feat: add `extruntime.AdjustOOMScoreAdj()` to protect extensions from the Linux OOM killer
 - Bump Go to 1.25.9
 
 ## 1.10.4

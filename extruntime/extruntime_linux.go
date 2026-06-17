@@ -8,8 +8,29 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"syscall"
 )
+
+const oomScoreAdjPath = "/proc/self/oom_score_adj"
+
+func adjustOOMScoreAdj(score int) {
+	previous := strings.TrimSpace(readOOMScoreAdj())
+
+	if err := os.WriteFile(oomScoreAdjPath, []byte(strconv.Itoa(score)+"\n"), 0644); err != nil {
+		log.Warn().Err(err).Int("oom_score_adj", score).Msg("Failed to adjust oom_score_adj; extension may be killed by the OOM killer under memory pressure (missing CAP_SYS_RESOURCE?)")
+		return
+	}
+
+	log.Info().Int("oom_score_adj", score).Str("previous", previous).Msg("Adjusted oom_score_adj to protect extension from the OOM killer")
+}
+
+func readOOMScoreAdj() string {
+	if content, err := os.ReadFile(oomScoreAdjPath); err == nil {
+		return string(content)
+	}
+	return "unknown"
+}
 
 func logCapsInformation(level zerolog.Level) {
 	if caps, err := exec.Command("getpcaps", strconv.Itoa(os.Getpid())).CombinedOutput(); err == nil {
