@@ -113,7 +113,9 @@ jobs:
 
           count=0
           ignored=0
+          unsafe_count=0
           unsafe_sha=""
+          unsafe_rows=""
           while IFS= read -r sha; do
             [ -z "$sha" ] && continue
             author_email=$(git log -1 --format='%ae' "$sha")
@@ -151,6 +153,8 @@ jobs:
 
             echo "  UNSAFE                 $sha  $subject"
             [ -z "$unsafe_sha" ] && unsafe_sha="$sha"
+            unsafe_count=$((unsafe_count + 1))
+            unsafe_rows+="| \`${sha:0:7}\` | ${subject//|/\\|} |"$'\n'
           done <<< "$commits"
 
           if [ "$count" -eq 0 ]; then
@@ -161,12 +165,35 @@ jobs:
           fi
 
           echo "commit_count=$count" >> "$GITHUB_OUTPUT"
+          safe_count=$((count - unsafe_count))
           if [ "$FORCE_RELEASE" = "true" ] && [ -n "$unsafe_sha" ]; then
             echo "FORCE_RELEASE: overriding ${count} commit(s) (first unsafe ${unsafe_sha}) to outcome=safe"
             echo "outcome=safe" >> "$GITHUB_OUTPUT"
+            {
+              echo "## :warning: Force-release — bypassing ${unsafe_count} unsafe commit(s)"
+              echo ""
+              echo "Latest tag: \`${LATEST_TAG}\`. \`force_release=true\` is set, so these commits are released anyway:"
+              echo ""
+              echo "| Commit | Subject |"
+              echo "|---|---|"
+              printf '%s' "$unsafe_rows"
+              echo ""
+              echo "Also in range: ${safe_count} safe, ${ignored} ignored."
+            } >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "$unsafe_sha" ]; then
             echo "outcome=skip-unsafe" >> "$GITHUB_OUTPUT"
             echo "unsafe_sha=${unsafe_sha:0:7}" >> "$GITHUB_OUTPUT"
+            {
+              echo "## :no_entry_sign: Release skipped — ${unsafe_count} unsafe commit(s) since \`${LATEST_TAG}\`"
+              echo ""
+              echo "These commits block the auto-release. A manual release is needed to move past them, or re-run with \`force_release=true\` to bypass:"
+              echo ""
+              echo "| Commit | Subject |"
+              echo "|---|---|"
+              printf '%s' "$unsafe_rows"
+              echo ""
+              echo "Also in range: ${safe_count} safe, ${ignored} ignored."
+            } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "outcome=safe" >> "$GITHUB_OUTPUT"
           fi
