@@ -206,8 +206,6 @@ jobs:
             echo "**Totals:** ${safe_count} safe · ${unsafe_count} blocking · ${ignored} ignored"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          [ "$outcome" = "no-commits" ] && exit 0
-
       - name: Compute next version and changelog bullets
         if: steps.evaluate.outputs.outcome == 'safe'
         id: next
