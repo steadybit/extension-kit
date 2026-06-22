@@ -108,6 +108,7 @@ jobs:
             echo "outcome=no-commits" >> "$GITHUB_OUTPUT"
             echo "commit_count=0" >> "$GITHUB_OUTPUT"
             echo "No non-merge commits since ${LATEST_TAG}"
+            echo "## :zzz: No commits since \`${LATEST_TAG}\`" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -115,94 +116,97 @@ jobs:
           ignored=0
           unsafe_count=0
           unsafe_sha=""
-          unsafe_rows=""
+          all_rows=""
           while IFS= read -r sha; do
             [ -z "$sha" ] && continue
             author_email=$(git log -1 --format='%ae' "$sha")
+            author_name=$(git log -1 --format='%an' "$sha")
             subject=$(git log -1 --format='%s' "$sha")
-
-            if [ -n "$IGNORE_REGEX" ] && echo "$subject" | grep -qE "$IGNORE_REGEX"; then
-              echo "  ignored                $sha  $subject"
-              ignored=$((ignored + 1))
-              continue
-            fi
-
-            count=$((count + 1))
             files=$(git diff-tree --no-commit-id --name-only -r "$sha")
 
-            if [[ "$author_email" == *"dependabot[bot]"* ]]; then
+            assessment=""
+            if [ -n "$IGNORE_REGEX" ] && echo "$subject" | grep -qE "$IGNORE_REGEX"; then
+              assessment="ignored"
+              echo "  ignored                $sha  $subject"
+              ignored=$((ignored + 1))
+            elif [[ "$author_email" == *"dependabot[bot]"* ]]; then
+              assessment="safe"
               echo "  safe (dependabot)      $sha  $subject"
-              continue
-            fi
-            if [[ "$subject" == "chore(deps):"* ]]; then
+              count=$((count + 1))
+            elif [[ "$subject" == "chore(deps):"* ]]; then
+              assessment="safe"
               echo "  safe (chore(deps))     $sha  $subject"
-              continue
-            fi
-            case "$subject" in
-              "build:"* | "build("*"):"*)
-                echo "  safe (build)           $sha  $subject"
-                continue
-                ;;
-            esac
-            if [[ "$subject" == "docs:"* ]]; then
-              echo "  safe (docs)            $sha  $subject"
-              continue
-            fi
-            if [ "$subject" = "chore: update helm chart version" ]; then
-              echo "  safe (legacy chart-bump)  $sha  $subject"
-              continue
-            fi
-            if [ "$files" = ".trivyignore.yml" ]; then
-              echo "  safe (.trivyignore.yml only)  $sha  $subject"
-              continue
+              count=$((count + 1))
+            else
+              case "$subject" in
+                "build:"* | "build("*"):"*)
+                  assessment="safe"
+                  echo "  safe (build)           $sha  $subject"
+                  count=$((count + 1))
+                  ;;
+                *)
+                  if [[ "$subject" == "docs:"* ]]; then
+                    assessment="safe"
+                    echo "  safe (docs)            $sha  $subject"
+                    count=$((count + 1))
+                  elif [ "$subject" = "chore: update helm chart version" ]; then
+                    assessment="safe"
+                    echo "  safe (legacy chart-bump)  $sha  $subject"
+                    count=$((count + 1))
+                  elif [ "$files" = ".trivyignore.yml" ]; then
+                    assessment="safe"
+                    echo "  safe (.trivyignore.yml only)  $sha  $subject"
+                    count=$((count + 1))
+                  else
+                    assessment="blocking"
+                    echo "  UNSAFE                 $sha  $subject"
+                    [ -z "$unsafe_sha" ] && unsafe_sha="$sha"
+                    unsafe_count=$((unsafe_count + 1))
+                    count=$((count + 1))
+                  fi
+                  ;;
+              esac
             fi
 
-            echo "  UNSAFE                 $sha  $subject"
-            [ -z "$unsafe_sha" ] && unsafe_sha="$sha"
-            unsafe_count=$((unsafe_count + 1))
-            unsafe_rows+="| \`${sha:0:7}\` | ${subject//|/\\|} |"$'\n'
+            all_rows+="| \`${sha:0:7}\` | ${author_name//|/\\|} | ${subject//|/\\|} | ${assessment} |"$'\n'
           done <<< "$commits"
-
-          if [ "$count" -eq 0 ]; then
-            echo "outcome=no-commits" >> "$GITHUB_OUTPUT"
-            echo "commit_count=0" >> "$GITHUB_OUTPUT"
-            echo "No releasable commits since ${LATEST_TAG} (${ignored} ignored)"
-            exit 0
-          fi
 
           echo "commit_count=$count" >> "$GITHUB_OUTPUT"
           safe_count=$((count - unsafe_count))
-          if [ "$FORCE_RELEASE" = "true" ] && [ -n "$unsafe_sha" ]; then
+
+          if [ "$count" -eq 0 ]; then
+            outcome=no-commits
+            echo "outcome=no-commits" >> "$GITHUB_OUTPUT"
+            echo "No releasable commits since ${LATEST_TAG} (${ignored} ignored)"
+          elif [ "$FORCE_RELEASE" = "true" ] && [ -n "$unsafe_sha" ]; then
+            outcome=safe-forced
             echo "FORCE_RELEASE: overriding ${count} commit(s) (first unsafe ${unsafe_sha}) to outcome=safe"
             echo "outcome=safe" >> "$GITHUB_OUTPUT"
-            {
-              echo "## :warning: Force-release — bypassing ${unsafe_count} unsafe commit(s)"
-              echo ""
-              echo "Latest tag: \`${LATEST_TAG}\`. \`force_release=true\` is set, so these commits are released anyway:"
-              echo ""
-              echo "| Commit | Subject |"
-              echo "|---|---|"
-              printf '%s' "$unsafe_rows"
-              echo ""
-              echo "Also in range: ${safe_count} safe, ${ignored} ignored."
-            } >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "$unsafe_sha" ]; then
+            outcome=skip-unsafe
             echo "outcome=skip-unsafe" >> "$GITHUB_OUTPUT"
             echo "unsafe_sha=${unsafe_sha:0:7}" >> "$GITHUB_OUTPUT"
-            {
-              echo "## :no_entry_sign: Release skipped — ${unsafe_count} unsafe commit(s) since \`${LATEST_TAG}\`"
-              echo ""
-              echo "These commits block the auto-release. A manual release is needed to move past them, or re-run with \`force_release=true\` to bypass:"
-              echo ""
-              echo "| Commit | Subject |"
-              echo "|---|---|"
-              printf '%s' "$unsafe_rows"
-              echo ""
-              echo "Also in range: ${safe_count} safe, ${ignored} ignored."
-            } >> "$GITHUB_STEP_SUMMARY"
           else
+            outcome=safe
             echo "outcome=safe" >> "$GITHUB_OUTPUT"
           fi
+
+          {
+            case "$outcome" in
+              safe-forced) echo "## :warning: Force-release — bypassing ${unsafe_count} blocking commit(s) since \`${LATEST_TAG}\`" ;;
+              skip-unsafe) echo "## :no_entry_sign: Release skipped — ${unsafe_count} blocking commit(s) since \`${LATEST_TAG}\`" ;;
+              safe)        echo "## :rocket: Auto-release — ${count} commit(s) since \`${LATEST_TAG}\`" ;;
+              no-commits)  echo "## :zzz: No releasable commits — ${ignored} ignored since \`${LATEST_TAG}\`" ;;
+            esac
+            echo ""
+            echo "| Commit | Author | Subject | Assessment |"
+            echo "|---|---|---|---|"
+            printf '%s' "$all_rows"
+            echo ""
+            echo "**Totals:** ${safe_count} safe · ${unsafe_count} blocking · ${ignored} ignored"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          [ "$outcome" = "no-commits" ] && exit 0
 
       - name: Compute next version and changelog bullets
         if: steps.evaluate.outputs.outcome == 'safe'
@@ -294,7 +298,7 @@ jobs:
           payload: |
             {
               "channel": "${{ inputs.slack_channel }}",
-              "text": ":rocket: ${{ github.repository }} ${{ inputs.force_release && 'released' || 'auto-released' }} ${{ steps.next.outputs.version }} (${{ steps.evaluate.outputs.commit_count }} commits since ${{ steps.latest.outputs.tag }})"
+              "text": ":rocket: ${{ github.repository }} ${{ inputs.force_release && 'released' || 'auto-released' }} ${{ steps.next.outputs.version }} (${{ steps.evaluate.outputs.commit_count }} commits since ${{ steps.latest.outputs.tag }}) — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|view run>"
             }
 
       - name: Notify Slack on skip-unsafe
@@ -306,5 +310,5 @@ jobs:
           payload: |
             {
               "channel": "${{ inputs.slack_channel }}",
-              "text": ":no_entry_sign: ${{ github.repository }} skipped Monday auto-release: ${{ steps.evaluate.outputs.commit_count }} commit(s) since ${{ steps.latest.outputs.tag }}, first unsafe `${{ steps.evaluate.outputs.unsafe_sha }}` — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|details>"
+              "text": ":no_entry_sign: ${{ github.repository }} skipped Monday auto-release: ${{ steps.evaluate.outputs.commit_count }} commit(s) since ${{ steps.latest.outputs.tag }}, first unsafe `${{ steps.evaluate.outputs.unsafe_sha }}` — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|view run>"
             }
