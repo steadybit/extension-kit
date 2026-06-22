@@ -138,10 +138,12 @@ jobs:
               echo "  safe (chore(deps))     $sha  $subject"
               continue
             fi
-            if [[ "$subject" =~ ^build(\([^)]*\))?: ]]; then
-              echo "  safe (build)           $sha  $subject"
-              continue
-            fi
+            case "$subject" in
+              "build:"* | "build("*"):"*)
+                echo "  safe (build)           $sha  $subject"
+                continue
+                ;;
+            esac
             if [[ "$subject" == "docs:"* ]]; then
               echo "  safe (docs)            $sha  $subject"
               continue
