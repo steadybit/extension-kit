@@ -103,8 +103,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          commits=$(git log --no-merges --format='%H' "${LATEST_TAG}..HEAD" || true)
-          if [ -z "$commits" ]; then
+          # One git invocation for all commit metadata; fields separated by ASCII US (0x1f)
+          # which cannot appear in commit subjects, so subject is captured verbatim.
+          commit_log=$(git log --no-merges --format='%H%x1f%ae%x1f%an%x1f%s' "${LATEST_TAG}..HEAD" || true)
+          if [ -z "$commit_log" ]; then
             echo "outcome=no-commits" >> "$GITHUB_OUTPUT"
             echo "commit_count=0" >> "$GITHUB_OUTPUT"
             echo "No non-merge commits since ${LATEST_TAG}"
@@ -117,12 +119,9 @@ jobs:
           unsafe_count=0
           unsafe_sha=""
           all_rows=""
-          while IFS= read -r sha; do
+          release_subjects=""
+          while IFS=$'\x1f' read -r sha author_email author_name subject; do
             [ -z "$sha" ] && continue
-            author_email=$(git log -1 --format='%ae' "$sha")
-            author_name=$(git log -1 --format='%an' "$sha")
-            subject=$(git log -1 --format='%s' "$sha")
-            files=$(git diff-tree --no-commit-id --name-only -r "$sha")
 
             assessment=""
             if [ -n "$IGNORE_REGEX" ] && echo "$subject" | grep -qE "$IGNORE_REGEX"; then
@@ -145,15 +144,9 @@ jobs:
                   count=$((count + 1))
                   ;;
                 *)
-                  if [[ "$subject" == "docs:"* ]]; then
-                    assessment="safe"
-                    echo "  safe (docs)            $sha  $subject"
-                    count=$((count + 1))
-                  elif [ "$subject" = "chore: update helm chart version" ]; then
-                    assessment="safe"
-                    echo "  safe (legacy chart-bump)  $sha  $subject"
-                    count=$((count + 1))
-                  elif [ "$files" = ".trivyignore.yml" ]; then
+                  # Only this branch needs the file list, so we defer the diff-tree until here.
+                  files=$(git diff-tree --no-commit-id --name-only -r "$sha")
+                  if [ "$files" = ".trivyignore.yml" ]; then
                     assessment="safe"
                     echo "  safe (.trivyignore.yml only)  $sha  $subject"
                     count=$((count + 1))
@@ -169,7 +162,19 @@ jobs:
             fi
 
             all_rows+="| \`${sha:0:7}\` | ${author_name//|/\\|} | ${subject//|/\\|} | ${assessment} |"$'\n'
-          done <<< "$commits"
+            [ "$assessment" != "ignored" ] && release_subjects+="${subject}"$'\n'
+          done <<< "$commit_log"
+
+          # Compose the CHANGELOG bullets from non-ignored subjects (used iff we end up releasing).
+          if [ -n "$release_subjects" ]; then
+            bullets=$(printf '%s' "$release_subjects" | sed '/^$/d' | sort -u | sed 's/^/- /')
+            [ -z "$bullets" ] && bullets="- Maintenance release"
+            {
+              echo 'changelog<<CHANGELOG_EOF'
+              echo "$bullets"
+              echo 'CHANGELOG_EOF'
+            } >> "$GITHUB_OUTPUT"
+          fi
 
           echo "commit_count=$count" >> "$GITHUB_OUTPUT"
           safe_count=$((count - unsafe_count))
@@ -206,13 +211,12 @@ jobs:
             echo "**Totals:** ${safe_count} safe · ${unsafe_count} blocking · ${ignored} ignored"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Compute next version and changelog bullets
+      - name: Compute next version
         if: steps.evaluate.outputs.outcome == 'safe'
         id: next
         env:
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
           RELEASE_TYPE: ${{ inputs.release_type }}
-          IGNORE_REGEX: ${{ inputs.changelog_ignore_regex }}
         run: |
           set -euo pipefail
 
@@ -227,25 +231,11 @@ jobs:
           echo "version=$next" >> "$GITHUB_OUTPUT"
           echo "Next version: $next (bump=$RELEASE_TYPE)"
 
-          subjects=$(git log --no-merges --format='%s' "${LATEST_TAG}..HEAD")
-          if [ -n "$IGNORE_REGEX" ]; then
-            subjects=$(echo "$subjects" | grep -vE "$IGNORE_REGEX" || true)
-          fi
-          bullets=$(echo "$subjects" | sed '/^$/d' | sort -u | sed 's/^/- /')
-          [ -z "$bullets" ] && bullets="- Maintenance release"
-          echo "Changelog bullets:"
-          echo "$bullets" | sed 's/^/  /'
-          {
-            echo 'changelog<<CHANGELOG_EOF'
-            echo "$bullets"
-            echo 'CHANGELOG_EOF'
-          } >> "$GITHUB_OUTPUT"
-
       - name: Update CHANGELOG, commit & tag
         if: steps.evaluate.outputs.outcome == 'safe' && !inputs.dry_run
         env:
           NEXT_VERSION: ${{ steps.next.outputs.version }}
-          BULLETS: ${{ steps.next.outputs.changelog }}
+          BULLETS: ${{ steps.evaluate.outputs.changelog }}
         run: |
           set -euo pipefail
 
@@ -277,7 +267,7 @@ jobs:
           NEXT_VERSION: ${{ steps.next.outputs.version }}
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
           COMMIT_COUNT: ${{ steps.evaluate.outputs.commit_count }}
-          BULLETS: ${{ steps.next.outputs.changelog }}
+          BULLETS: ${{ steps.evaluate.outputs.changelog }}
         run: |
           echo "DRY RUN: would release ${NEXT_VERSION} (${COMMIT_COUNT} safe commits since ${LATEST_TAG})"
           echo "DRY RUN: would prepend the following section to CHANGELOG.md:"
