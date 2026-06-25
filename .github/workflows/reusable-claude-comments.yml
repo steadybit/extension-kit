@@ -1,0 +1,68 @@
+##
+# Reusable workflow for Claude Code triggered via @claude mentions in comments and issues.
+#
+# Usage in an extension:
+#
+#   name: Claude Code
+#   on:
+#     issue_comment:
+#       types: [created]
+#     pull_request_review_comment:
+#       types: [created]
+#     issues:
+#       types: [opened, assigned]
+#     pull_request_review:
+#       types: [submitted]
+#   jobs:
+#     claude:
+#       uses: steadybit/extension-kit/.github/workflows/reusable-claude-comments.yml@main
+#       secrets: inherit
+
+name: Claude Code (reusable)
+
+on:
+  workflow_call:
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      actions: read
+
+    steps:
+      - name: Resolve Claude token for actor
+        id: resolve-token
+        run: |
+          case "${{ github.actor }}" in
+            ReuDa)           echo "token_name=CLAUDE_CODE_TOKEN_DANIEL" >> "$GITHUB_OUTPUT" ;;
+            joshiste)        echo "token_name=CLAUDE_CODE_TOKEN_JOHANNES" >> "$GITHUB_OUTPUT" ;;
+            bertschneider)   echo "token_name=CLAUDE_CODE_TOKEN_NORBERT" >> "$GITHUB_OUTPUT" ;;
+            ManuelGerding)   echo "token_name=CLAUDE_CODE_TOKEN_MANUEL" >> "$GITHUB_OUTPUT" ;;
+            achoimet)        echo "token_name=CLAUDE_CODE_TOKEN_ANTOINE" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::No Claude token configured for user '${{ github.actor }}'"
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1 # NOSONAR githubactions:S7637 - verified action creator
+        with:
+          claude_code_oauth_token: ${{ secrets[steps.resolve-token.outputs.token_name] }}
+          additional_permissions: |
+            actions: read
