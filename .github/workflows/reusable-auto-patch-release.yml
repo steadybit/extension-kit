@@ -211,12 +211,13 @@ jobs:
             echo "**Totals:** ${safe_count} safe · ${unsafe_count} blocking · ${ignored} ignored"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Compute next version
+      - name: Compute next version and merge CHANGELOG bullets
         if: steps.evaluate.outputs.outcome == 'safe'
         id: next
         env:
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
           RELEASE_TYPE: ${{ inputs.release_type }}
+          EVALUATE_BULLETS: ${{ steps.evaluate.outputs.changelog }}
         run: |
           set -euo pipefail
 
@@ -231,11 +232,37 @@ jobs:
           echo "version=$next" >> "$GITHUB_OUTPUT"
           echo "Next version: $next (bump=$RELEASE_TYPE)"
 
+          # If CHANGELOG.md has any pre-release section between the "# Changelog"
+          # header and the first "## v..." section (e.g. "## Unreleased", "## (next)"),
+          # collect its bullets and merge them into the new release. The pre-release
+          # section itself is dropped by the Update step's tail -n +<first_version_line>.
+          bullets="$EVALUATE_BULLETS"
+          first_version_line=""
+          if [ -f CHANGELOG.md ]; then
+            first_version_line=$(grep -n '^## v[0-9]' CHANGELOG.md | head -1 | cut -d: -f1 || true)
+            if [ -n "$first_version_line" ] && [ "$first_version_line" -gt 3 ]; then
+              preamble_bullets=$(sed -n "2,$((first_version_line - 1))p" CHANGELOG.md | grep -E '^- ' || true)
+              if [ -n "$preamble_bullets" ]; then
+                echo "Merging pre-release section bullets into ${next}:"
+                echo "$preamble_bullets" | sed 's/^/  /'
+                bullets=$(printf '%s\n%s\n' "$preamble_bullets" "$EVALUATE_BULLETS" | sed '/^$/d' | sort -u)
+              fi
+            fi
+          fi
+
+          {
+            echo 'changelog<<CHANGELOG_EOF'
+            echo "$bullets"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "first_version_line=${first_version_line}" >> "$GITHUB_OUTPUT"
+
       - name: Update CHANGELOG, commit & tag
         if: steps.evaluate.outputs.outcome == 'safe' && !inputs.dry_run
         env:
           NEXT_VERSION: ${{ steps.next.outputs.version }}
-          BULLETS: ${{ steps.evaluate.outputs.changelog }}
+          BULLETS: ${{ steps.next.outputs.changelog }}
+          FIRST_VERSION_LINE: ${{ steps.next.outputs.first_version_line }}
         run: |
           set -euo pipefail
 
@@ -252,7 +279,9 @@ jobs:
             printf '# Changelog\n\n'
             printf '## %s\n\n' "$NEXT_VERSION"
             printf '%s\n\n' "$BULLETS"
-            tail -n +3 CHANGELOG.md
+            if [ -n "$FIRST_VERSION_LINE" ]; then
+              tail -n +"$FIRST_VERSION_LINE" CHANGELOG.md
+            fi
           } > CHANGELOG.md.new
           mv CHANGELOG.md.new CHANGELOG.md
 
@@ -267,7 +296,7 @@ jobs:
           NEXT_VERSION: ${{ steps.next.outputs.version }}
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
           COMMIT_COUNT: ${{ steps.evaluate.outputs.commit_count }}
-          BULLETS: ${{ steps.evaluate.outputs.changelog }}
+          BULLETS: ${{ steps.next.outputs.changelog }}
         run: |
           echo "DRY RUN: would release ${NEXT_VERSION} (${COMMIT_COUNT} safe commits since ${LATEST_TAG})"
           echo "DRY RUN: would prepend the following section to CHANGELOG.md:"
