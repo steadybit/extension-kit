@@ -239,13 +239,13 @@ jobs:
           bullets="$EVALUATE_BULLETS"
           first_version_line=""
           if [ -f CHANGELOG.md ]; then
-            first_version_line=$(grep -n '^## v[0-9]' CHANGELOG.md | head -1 | cut -d: -f1 || true)
-            if [ -n "$first_version_line" ] && [ "$first_version_line" -gt 3 ]; then
-              preamble_bullets=$(sed -n "2,$((first_version_line - 1))p" CHANGELOG.md | grep -E '^- ' || true)
+            first_version_line=$(awk '/^## v[0-9]/ {print NR; exit}' CHANGELOG.md)
+            if [ -n "$first_version_line" ]; then
+              preamble_bullets=$(awk -v n="$first_version_line" 'NR > 1 && NR < n && /^- /' CHANGELOG.md)
               if [ -n "$preamble_bullets" ]; then
                 echo "Merging pre-release section bullets into ${next}:"
                 echo "$preamble_bullets" | sed 's/^/  /'
-                bullets=$(printf '%s\n%s\n' "$preamble_bullets" "$EVALUATE_BULLETS" | sed '/^$/d' | sort -u)
+                bullets=$(printf '%s\n%s\n' "$preamble_bullets" "$EVALUATE_BULLETS" | sort -u)
               fi
             fi
           fi
