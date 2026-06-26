@@ -123,7 +123,7 @@ jobs:
       # Restricted to pushes to main so tags and pull requests always get the full pipeline.
       charts_only: ${{ steps.changes.outputs.other-than-charts == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@9d7afb8d214ad99e78fbd4247752c4caed2b6e4c # NOSONAR githubactions:S7637 - dorny/paths-filter v4.0.0, established org convention
         id: changes
         with:
@@ -143,7 +143,7 @@ jobs:
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -230,7 +230,7 @@ jobs:
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -357,7 +357,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -429,7 +429,7 @@ jobs:
     if: ${{ !cancelled() && needs.audit.result != 'failure' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -474,7 +474,7 @@ jobs:
           app-id: ${{ inputs.VERSION_BUMPER_APPID }}
           private-key: ${{ secrets.VERSION_BUMPER_SECRET }}
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -500,7 +500,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -550,7 +550,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v6
