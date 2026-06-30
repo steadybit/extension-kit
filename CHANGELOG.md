@@ -2,6 +2,8 @@
 
 ## (next)
 
+- feat: add `CmdState.Wait()` and `CmdState.ExitCode()` to `extcmd` so extensions can read a command's exit code without racing the goroutine that reaps the process
+
 ## 1.10.5
 
 - feat: add `extruntime.AdjustOOMScoreAdj()` to protect extensions from the Linux OOM killer

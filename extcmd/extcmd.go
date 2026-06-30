@@ -26,6 +26,7 @@ func NewCmdState(cmd *exec.Cmd) *CmdState {
 	state := new(CmdState)
 	state.Id = uuid.NewString()
 	state.Cmd = cmd
+	state.exitCode.Store(-1)
 	state.out = new(bytes.Buffer)
 	state.mu = new(sync.Mutex)
 
