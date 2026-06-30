@@ -2,6 +2,8 @@
 
 ## (next)
 
+## 1.10.6
+
 - feat: add `CmdState.Wait()` and `CmdState.ExitCode()` to `extcmd` so extensions can read a command's exit code without racing the goroutine that reaps the process
 
 ## 1.10.5
