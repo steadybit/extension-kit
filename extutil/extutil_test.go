@@ -154,6 +154,8 @@ func TestToString(t *testing.T) {
 	}{
 		{name: "string 'anything' should return 'anything'", args: args{val: "anything"}, want: "anything"},
 		{name: "nil should return ''", args: args{val: nil}, want: ""},
+		{name: "non-string number should return '' (not panic)", args: args{val: float64(42)}, want: ""},
+		{name: "non-string bool should return '' (not panic)", args: args{val: true}, want: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -178,6 +180,7 @@ func TestToBool(t *testing.T) {
 		{name: "string 'anything' should return false", args: args{val: "anything"}, want: false},
 		{name: "string '' should return false", args: args{val: ""}, want: false},
 		{name: "nil should return false", args: args{val: nil}, want: false},
+		{name: "non-string non-bool number should return false (not panic)", args: args{val: float64(1)}, want: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -199,6 +202,31 @@ func TestToKeyValue(t *testing.T) {
 func TestToToStringArray(t *testing.T) {
 	value := ToStringArray([]any{"key", "testKey", "value", "testValue"})
 	require.Equal(t, []string([]string{"key", "testKey", "value", "testValue"}), value)
+}
+
+func TestToKeyValue_malformed_returns_error_not_panic(t *testing.T) {
+	// value that isn't a key/value array
+	_, err := ToKeyValue(map[string]interface{}{"headers": "not-an-array"}, "headers")
+	require.Error(t, err)
+
+	// entry with a non-string value must return an error, not panic
+	_, err = ToKeyValue(map[string]interface{}{"headers": []any{
+		map[string]any{"key": "k", "value": 42},
+	}}, "headers")
+	require.Error(t, err)
+
+	// entry missing the value key must return an error, not panic
+	_, err = ToKeyValue(map[string]interface{}{"headers": []any{
+		map[string]any{"key": "k"},
+	}}, "headers")
+	require.Error(t, err)
+}
+
+func TestToStringArray_malformed_returns_nil_or_skips_not_panic(t *testing.T) {
+	assert.Nil(t, ToStringArray(nil))
+	assert.Nil(t, ToStringArray("not-a-slice"))
+	// non-string elements are skipped rather than panicking
+	assert.Equal(t, []string{"a", "b"}, ToStringArray([]any{"a", 42, "b", true}))
 }
 
 func TestMaskString(t *testing.T) {
