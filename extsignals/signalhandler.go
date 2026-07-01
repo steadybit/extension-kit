@@ -54,6 +54,18 @@ func RemoveSignalHandlersByName(names ...string) {
 	}
 }
 
+// callSignalHandler invokes a signal handler, recovering from a panic so one misbehaving
+// handler can't crash the dispatch goroutine and abort the remaining (ordered) handlers —
+// which include the HTTP-server shutdown and readiness handlers.
+func callSignalHandler(handler SignalHandler, s os.Signal) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error().Str("handler", handler.Name).Msgf("signal handler panicked: %v", r)
+		}
+	}()
+	handler.Handler(s)
+}
+
 func createSignalChannel(context context.Context) chan os.Signal {
 	signalChannel := make(chan os.Signal, 1)
 	Notify(signalChannel)
@@ -70,10 +82,13 @@ func createSignalChannel(context context.Context) chan os.Signal {
 					return true
 				})
 				sort.Sort(ByOrder(handlerList))
-				signalName := GetSignalName(s.(syscall.Signal))
+				signalName := s.String()
+				if sysSig, ok := s.(syscall.Signal); ok {
+					signalName = GetSignalName(sysSig)
+				}
 				for _, handler := range handlerList {
 					log.Debug().Str("signal", signalName).Str("handler", handler.Name).Int("order", handler.Order).Msg("received signal - call handler")
-					handler.Handler(s)
+					callSignalHandler(handler, s)
 				}
 			}
 		}
