@@ -86,6 +86,7 @@ func LogRequestWithDefaultLogLevel(next Handler, defaultLevel zerolog.Level) htt
 		if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
 			if bytes, err := io.ReadAll(r.Body); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			} else {
 				reqBody = bytes
 			}
