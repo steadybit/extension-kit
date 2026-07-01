@@ -86,25 +86,25 @@ func StartProbes(port int) {
 	serverMux := http.NewServeMux()
 	addLivenessProbe(serverMux.Handle)
 	addReadinessProbe(serverMux.Handle)
+	// Assign the package-level server before starting the goroutine so StopProbes and the
+	// StopProbesHTTP signal handler never race the assignment (nor read a nil server).
+	server = &http.Server{Addr: fmt.Sprintf(":%d", healthPort), Handler: serverMux}
+
+	extsignals.AddSignalHandler(extsignals.SignalHandler{
+		Handler: func(signal os.Signal) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			log.Info().Msg("Stopping Probes HTTP Server")
+			if err := server.Shutdown(ctx); err != nil {
+				log.Warn().Msgf("Probes HTTP Server Shutdown Failed: %+v", err)
+			}
+		},
+		Order: extsignals.OrderStopProbesHttp,
+		Name:  "StopProbesHTTP",
+	})
+
 	go func() {
 		log.Info().Msgf("Starting probes server on port %d, ready: %t", healthPort, atomic.LoadInt32(&isReady) == 1)
-		server = &http.Server{Addr: fmt.Sprintf(":%d", healthPort), Handler: serverMux}
-
-		extsignals.AddSignalHandler(extsignals.SignalHandler{
-			Handler: func(signal os.Signal) {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer func() {
-					cancel()
-				}()
-				log.Info().Msg("Stopping Probes HTTP Server")
-				if err := server.Shutdown(ctx); err != nil {
-					log.Warn().Msgf("Probes HTTP Server Shutdown Failed: %+v", err)
-				}
-			},
-			Order: extsignals.OrderStopProbesHttp,
-			Name:  "StopProbesHTTP",
-		})
-
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msgf("Failed to start probes server")
 		}

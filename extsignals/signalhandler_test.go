@@ -56,6 +56,32 @@ func TestSignalHandlers(t *testing.T) {
 	require.Equal(t, handlerList.Load(), "Handler2Handler1")
 }
 
+func TestSignalHandler_panicking_handler_does_not_abort_others(t *testing.T) {
+	survivorRun := atomic.Bool{}
+
+	ClearSignalHandlers()
+	defer ClearSignalHandlers()
+	ActivateSignalHandlers()
+	RemoveSignalHandlersByName("Termination")
+	AddSignalHandler(SignalHandler{
+		Handler: func(os.Signal) { panic("boom") },
+		Order:   10,
+		Name:    "Panicker",
+	})
+	AddSignalHandler(SignalHandler{
+		Handler: func(os.Signal) { survivorRun.Store(true) },
+		Order:   20, // ordered after the panicking handler
+		Name:    "Survivor",
+	})
+
+	err := Kill(os.Getpid())
+	require.NoError(t, err)
+
+	<-time.After(500 * time.Millisecond)
+
+	require.True(t, survivorRun.Load(), "a panicking handler must not prevent later handlers from running")
+}
+
 func TestRemoveSignalHandlersByName(t *testing.T) {
 	handler1Run := atomic.Bool{}
 	handler2Run := atomic.Bool{}
