@@ -2,6 +2,8 @@
 
 ## (next)
 
+- fix: `extutil.ToString`/`ToBool`/`ToKeyValue`/`ToStringArray` no longer panic on malformed (agent-supplied) config values — they return the zero value (or an error, for `ToKeyValue`) on a type mismatch, matching the other `To*` converters
+
 ## 1.10.7
 
 - feat: add `extheartbeat` — a concurrency-safe heartbeat watchdog (`Monitor`/`Notify`) shared by the action- and preflight-kit SDKs, which previously each carried their own identical copy

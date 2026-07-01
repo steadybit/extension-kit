@@ -113,21 +113,23 @@ func ToInt32(val interface{}) int32 {
 }
 
 func ToString(val interface{}) string {
-	if val == nil {
-		return ""
+	if s, ok := val.(string); ok {
+		return s
 	}
-	return val.(string)
+	// Non-string (or nil) config values yield "" rather than panicking, matching the
+	// zero-value-on-mismatch behavior of the other To* converters.
+	return ""
 }
 
 func ToBool(val interface{}) bool {
-	if val == nil || val == "" {
-		return false
+	if s, ok := val.(string); ok {
+		return s == "true"
 	}
-	// parse bool string
-	if val, ok := val.(string); ok {
-		return val == "true"
+	if b, ok := val.(bool); ok {
+		return b
 	}
-	return val.(bool)
+	// nil or any other type is not truthy — return false instead of panicking.
+	return false
 }
 
 func ToKeyValue(config map[string]interface{}, configName string) (map[string]string, error) {
@@ -142,7 +144,12 @@ func ToKeyValue(config map[string]interface{}, configName string) (map[string]st
 		if !ok {
 			return nil, fmt.Errorf("failed to interpret config value for %s as a key/value array", configName)
 		}
-		result[entry["key"].(string)] = entry["value"].(string)
+		key, keyOk := entry["key"].(string)
+		value, valueOk := entry["value"].(string)
+		if !keyOk || !valueOk {
+			return nil, fmt.Errorf("failed to interpret config value for %s as a key/value array", configName)
+		}
+		result[key] = value
 	}
 
 	return result, nil
@@ -192,13 +199,17 @@ func MustHaveValue[T any, K comparable](m map[K]T, key K) T {
 }
 
 func ToStringArray(s interface{}) []string {
-	if s == nil {
+	arr, ok := s.([]interface{})
+	if !ok {
+		// nil or any non-slice value yields nil rather than panicking.
 		return nil
 	}
 
-	tokens := make([]string, len(s.([]interface{})))
-	for i, v := range s.([]interface{}) {
-		tokens[i] = v.(string)
+	tokens := make([]string, 0, len(arr))
+	for _, v := range arr {
+		if str, ok := v.(string); ok {
+			tokens = append(tokens, str)
+		}
 	}
 	return tokens
 }
