@@ -2,6 +2,8 @@
 
 ## (next)
 
+## 1.10.7
+
 - feat: add `extheartbeat` — a concurrency-safe heartbeat watchdog (`Monitor`/`Notify`) shared by the action- and preflight-kit SDKs, which previously each carried their own identical copy
 
 ## 1.10.6
