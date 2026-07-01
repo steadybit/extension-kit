@@ -5,6 +5,8 @@
 - fix: reject a request with a 400 and stop processing when its body can't be read, instead of falling through and running the handler with a nil body after the response was already written (`exthttp` request-logging middleware)
 
 - fix: `extutil.ToString`/`ToBool`/`ToKeyValue`/`ToStringArray` no longer panic on malformed (agent-supplied) config values — they return the zero value (or an error, for `ToKeyValue`) on a type mismatch, matching the other `To*` converters
+- fix: `exthealth` no longer has a data race on the probes HTTP server pointer — it is assigned before the serving goroutine starts, so `StopProbes` and the shutdown signal handler can't race the assignment or read a nil server
+- fix: `extsignals` recovers panics per signal handler (one misbehaving handler can no longer crash the dispatch goroutine and abort the remaining ordered shutdown handlers) and no longer panics on a non-`syscall.Signal`
 
 ## 1.10.7
 
