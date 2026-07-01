@@ -2,6 +2,8 @@
 
 ## (next)
 
+- feat: add `extheartbeat` — a concurrency-safe heartbeat watchdog (`Monitor`/`Notify`) shared by the action- and preflight-kit SDKs, which previously each carried their own identical copy
+
 ## 1.10.6
 
 - feat: add `CmdState.Wait()` and `CmdState.ExitCode()` to `extcmd` so extensions can read a command's exit code without racing the goroutine that reaps the process
