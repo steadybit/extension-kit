@@ -6,6 +6,7 @@ package exthttp
 
 import (
 	"compress/gzip"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,9 +15,29 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/gzhttp"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type errReadCloser struct{}
+
+func (errReadCloser) Read([]byte) (int, error) { return 0, errors.New("boom") }
+func (errReadCloser) Close() error             { return nil }
+
+func TestLogRequestWithDefaultLogLevel_bodyReadError_rejects_and_skips_handler(t *testing.T) {
+	nextCalled := false
+	h := LogRequestWithDefaultLogLevel(func(w http.ResponseWriter, r *http.Request, body []byte) {
+		nextCalled = true
+	}, zerolog.InfoLevel)
+
+	req := httptest.NewRequest(http.MethodPost, "/x", errReadCloser{})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.False(t, nextCalled, "the handler must not run when the request body cannot be read")
+}
 
 func TestRequestTimeoutHeaderAware(t *testing.T) {
 	tests := []struct {

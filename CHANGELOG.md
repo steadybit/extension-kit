@@ -2,6 +2,8 @@
 
 ## (next)
 
+- fix: reject a request with a 400 and stop processing when its body can't be read, instead of falling through and running the handler with a nil body after the response was already written (`exthttp` request-logging middleware)
+
 - fix: `extutil.ToString`/`ToBool`/`ToKeyValue`/`ToStringArray` no longer panic on malformed (agent-supplied) config values — they return the zero value (or an error, for `ToKeyValue`) on a type mismatch, matching the other `To*` converters
 
 ## 1.10.7
