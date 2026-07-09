@@ -41,7 +41,7 @@ func AddSignalHandler(signalHandler SignalHandler) {
 }
 
 func ClearSignalHandlers() {
-	handlers.Range(func(key, value interface{}) bool {
+	handlers.Range(func(key, value any) bool {
 		handlers.Delete(key)
 		return true
 	})
@@ -77,7 +77,7 @@ func createSignalChannel(context context.Context) chan os.Signal {
 				return
 			case s := <-signals:
 				handlerList := make([]SignalHandler, 0)
-				handlers.Range(func(key, value interface{}) bool {
+				handlers.Range(func(key, value any) bool {
 					handlerList = append(handlerList, value.(SignalHandler))
 					return true
 				})

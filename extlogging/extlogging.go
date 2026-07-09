@@ -23,7 +23,7 @@ func InitZeroLog() {
 
 	var logger zerolog.Logger
 	if strings.ToLower(os.Getenv("STEADYBIT_LOG_FORMAT")) != "json" {
-		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: getNoColor(), TimeFormat: RFC3339Micro, FormatTimestamp: func(i interface{}) string {
+		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: getNoColor(), TimeFormat: RFC3339Micro, FormatTimestamp: func(i any) string {
 			timestamp, _ := time.Parse(time.RFC3339, i.(string))
 			return timestamp.Format(RFC3339Micro)
 		}})

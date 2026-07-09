@@ -7,7 +7,6 @@ package extension_kit
 import (
 	"errors"
 	"fmt"
-	"github.com/steadybit/extension-kit/extutil"
 )
 
 // ExtensionError is a generalization over ActionKit and DiscoveryKit error types. They are structurally identical
@@ -36,7 +35,7 @@ func (e ExtensionError) Error() string {
 // ToError converts an error to an ExtensionError.
 func ToError(title string, err error) ExtensionError {
 	if err != nil {
-		return ExtensionError{Title: title, Detail: extutil.Ptr(err.Error())}
+		return ExtensionError{Title: title, Detail: new(err.Error())}
 	} else {
 		return ExtensionError{Title: title}
 	}

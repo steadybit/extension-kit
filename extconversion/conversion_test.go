@@ -21,7 +21,7 @@ func TestConversionOfTime(t *testing.T) {
 	input := StructWithTime{End: end}
 
 	// When
-	var intermediate map[string]interface{}
+	var intermediate map[string]any
 	err = Convert(input, &intermediate)
 	require.NoError(t, err)
 	require.Equal(t, "2013-02-03T00:00:00Z", intermediate["end"])

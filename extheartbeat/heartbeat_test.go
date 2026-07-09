@@ -48,7 +48,7 @@ func TestHeartbeat_should_not_timeout(t *testing.T) {
 
 func TestHeartbeat_timeout_should_close_channel(t *testing.T) {
 	i := atomic.Uint32{}
-	w := make(chan interface{})
+	w := make(chan any)
 	ch := make(chan time.Time)
 	hb := Notify(ch, 10*time.Millisecond, 20*time.Millisecond)
 	defer hb.Stop()
@@ -79,13 +79,11 @@ func TestMonitor_concurrent_stop_and_record(t *testing.T) {
 	hb := Notify(ch, time.Hour, time.Hour)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() { defer wg.Done(); hb.RecordHeartbeat() }()
+	for range 50 {
+		wg.Go(func() { ; hb.RecordHeartbeat() })
 	}
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() { defer wg.Done(); hb.Stop() }()
+	for range 5 {
+		wg.Go(func() { ; hb.Stop() })
 	}
 	wg.Wait()
 

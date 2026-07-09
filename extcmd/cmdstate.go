@@ -6,7 +6,6 @@ package extcmd
 import (
 	"bytes"
 	"fmt"
-	"github.com/steadybit/extension-kit/extutil"
 	"os/exec"
 	"sync"
 	"sync/atomic"
@@ -83,7 +82,7 @@ func (cs *CmdState) GetMessages(includePartialMessages bool) []Message {
 	messages := make([]Message, 0, len(lines))
 	for _, line := range lines {
 		messages = append(messages, Message{
-			Level:   extutil.Ptr("info"),
+			Level:   new("info"),
 			Message: line,
 		})
 	}
