@@ -14,11 +14,13 @@ import (
 )
 
 // Ptr returns a pointer to the given value. You will find this helpful when desiring to pass a literal value to a function that requires a pointer.
+//
+//go:fix inline
 func Ptr[T any](val T) *T {
-	return &val
+	return new(val)
 }
 
-func ToInt64(val interface{}) int64 {
+func ToInt64(val any) int64 {
 	switch val := val.(type) {
 	case int:
 		return int64(val)
@@ -41,7 +43,7 @@ func ToInt64(val interface{}) int64 {
 	}
 }
 
-func ToUInt64(val interface{}) uint64 {
+func ToUInt64(val any) uint64 {
 	switch val := val.(type) {
 	case int:
 		return uint64(val)
@@ -66,7 +68,7 @@ func ToUInt64(val interface{}) uint64 {
 	}
 }
 
-func ToInt(val interface{}) int {
+func ToInt(val any) int {
 	switch val := val.(type) {
 	case int:
 		return val
@@ -89,7 +91,7 @@ func ToInt(val interface{}) int {
 	}
 }
 
-func ToInt32(val interface{}) int32 {
+func ToInt32(val any) int32 {
 	switch val := val.(type) {
 	case int:
 		return int32(val)
@@ -112,7 +114,7 @@ func ToInt32(val interface{}) int32 {
 
 }
 
-func ToString(val interface{}) string {
+func ToString(val any) string {
 	if s, ok := val.(string); ok {
 		return s
 	}
@@ -121,7 +123,7 @@ func ToString(val interface{}) string {
 	return ""
 }
 
-func ToBool(val interface{}) bool {
+func ToBool(val any) bool {
 	if s, ok := val.(string); ok {
 		return s == "true"
 	}
@@ -132,7 +134,7 @@ func ToBool(val interface{}) bool {
 	return false
 }
 
-func ToKeyValue(config map[string]interface{}, configName string) (map[string]string, error) {
+func ToKeyValue(config map[string]any, configName string) (map[string]string, error) {
 	kv, ok := config[configName].([]any)
 	if !ok {
 		return nil, fmt.Errorf("failed to interpret config value for %s as a key/value array", configName)
@@ -155,7 +157,7 @@ func ToKeyValue(config map[string]interface{}, configName string) (map[string]st
 	return result, nil
 }
 
-func ToUInt(val interface{}) uint {
+func ToUInt(val any) uint {
 	switch val := val.(type) {
 	case int:
 		return uint(val)
@@ -190,7 +192,7 @@ func MustHaveValue[T any, K comparable](m map[K]T, key K) T {
 		if reflect.ValueOf(val).Len() == 0 {
 			panic(fmt.Sprintf("value for '%v' is empty ", key))
 		}
-	} else if kind == reflect.Ptr {
+	} else if kind == reflect.Pointer {
 		if reflect.ValueOf(val).IsNil() {
 			panic(fmt.Sprintf("value for '%v' is nil ", key))
 		}
@@ -198,8 +200,8 @@ func MustHaveValue[T any, K comparable](m map[K]T, key K) T {
 	return val
 }
 
-func ToStringArray(s interface{}) []string {
-	arr, ok := s.([]interface{})
+func ToStringArray(s any) []string {
+	arr, ok := s.([]any)
 	if !ok {
 		// nil or any non-slice value yields nil rather than panicking.
 		return nil

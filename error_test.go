@@ -5,7 +5,6 @@ package extension_kit
 
 import (
 	"errors"
-	"github.com/steadybit/extension-kit/extutil"
 	"reflect"
 	"testing"
 )
@@ -55,7 +54,7 @@ func TestToError(t *testing.T) {
 			name:  "some error",
 			title: "some title",
 			err:   errors.New("some error"),
-			want:  ExtensionError{Title: "some title", Detail: extutil.Ptr("some error")},
+			want:  ExtensionError{Title: "some title", Detail: new("some error")},
 		},
 	}
 	for _, tt := range tests {

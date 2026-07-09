@@ -69,14 +69,12 @@ func TestCmdStateExitCodeIsConcurrencySafe(t *testing.T) {
 	// Readers (as the status/stop handlers do) must not race the Wait goroutine
 	// (caught by `go test -race`).
 	var wg sync.WaitGroup
-	for r := 0; r < 4; r++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 4 {
+		wg.Go(func() {
 			for cs.ExitCode() == -1 {
 				runtime.Gosched()
 			}
-		}()
+		})
 	}
 	require.NoError(t, cs.Wait())
 	wg.Wait()

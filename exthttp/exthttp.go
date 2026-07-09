@@ -21,7 +21,6 @@ import (
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
 	"github.com/steadybit/extension-kit"
-	"github.com/steadybit/extension-kit/extutil"
 )
 
 type Handler func(w http.ResponseWriter, r *http.Request, body []byte)
@@ -49,7 +48,7 @@ func PanicRecovery(next http.Handler) http.Handler {
 			if err := recover(); err != nil {
 				log.Error().Msgf("Panic: %v\n %s", err, string(debug.Stack()))
 				response := extension_kit.ToError("Internal Server Error", nil)
-				response.Detail = extutil.Ptr(fmt.Sprintf("Panic: %v", err))
+				response.Detail = new(fmt.Sprintf("Panic: %v", err))
 				WriteError(w, response)
 			}
 		}()

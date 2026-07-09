@@ -11,7 +11,7 @@ import (
 
 func TestToInt64(t *testing.T) {
 	type args struct {
-		val interface{}
+		val any
 	}
 	tests := []struct {
 		name string
@@ -38,7 +38,7 @@ func TestToInt64(t *testing.T) {
 
 func TestToUInt64(t *testing.T) {
 	type args struct {
-		val interface{}
+		val any
 	}
 	tests := []struct {
 		name string
@@ -65,7 +65,7 @@ func TestToUInt64(t *testing.T) {
 
 func TestToUInt(t *testing.T) {
 	type args struct {
-		val interface{}
+		val any
 	}
 	tests := []struct {
 		name string
@@ -92,7 +92,7 @@ func TestToUInt(t *testing.T) {
 
 func TestToInt(t *testing.T) {
 	type args struct {
-		val interface{}
+		val any
 	}
 	tests := []struct {
 		name string
@@ -119,7 +119,7 @@ func TestToInt(t *testing.T) {
 
 func TestToInt32(t *testing.T) {
 	type args struct {
-		val interface{}
+		val any
 	}
 	tests := []struct {
 		name string
@@ -145,7 +145,7 @@ func TestToInt32(t *testing.T) {
 }
 func TestToString(t *testing.T) {
 	type args struct {
-		val interface{}
+		val any
 	}
 	tests := []struct {
 		name string
@@ -168,7 +168,7 @@ func TestToString(t *testing.T) {
 
 func TestToBool(t *testing.T) {
 	type args struct {
-		val interface{}
+		val any
 	}
 	tests := []struct {
 		name string
@@ -192,7 +192,7 @@ func TestToBool(t *testing.T) {
 }
 
 func TestToKeyValue(t *testing.T) {
-	value, err := ToKeyValue(map[string]interface{}{"headers": []any{
+	value, err := ToKeyValue(map[string]any{"headers": []any{
 		map[string]any{"key": "testKey", "value": "testValue"},
 	}}, "headers")
 	require.NoError(t, err)
@@ -206,17 +206,17 @@ func TestToToStringArray(t *testing.T) {
 
 func TestToKeyValue_malformed_returns_error_not_panic(t *testing.T) {
 	// value that isn't a key/value array
-	_, err := ToKeyValue(map[string]interface{}{"headers": "not-an-array"}, "headers")
+	_, err := ToKeyValue(map[string]any{"headers": "not-an-array"}, "headers")
 	require.Error(t, err)
 
 	// entry with a non-string value must return an error, not panic
-	_, err = ToKeyValue(map[string]interface{}{"headers": []any{
+	_, err = ToKeyValue(map[string]any{"headers": []any{
 		map[string]any{"key": "k", "value": 42},
 	}}, "headers")
 	require.Error(t, err)
 
 	// entry missing the value key must return an error, not panic
-	_, err = ToKeyValue(map[string]interface{}{"headers": []any{
+	_, err = ToKeyValue(map[string]any{"headers": []any{
 		map[string]any{"key": "k"},
 	}}, "headers")
 	require.Error(t, err)
@@ -281,7 +281,7 @@ func TestMustHaveValue(t *testing.T) {
 		MustHaveValue(map[string]string{"key": "value"}, "missing")
 	})
 
-	assert.Equal(t, Ptr("value"), MustHaveValue(map[string]*string{"key": Ptr("value")}, "key"))
+	assert.Equal(t, new("value"), MustHaveValue(map[string]*string{"key": new("value")}, "key"))
 	assert.Panics(t, func() {
 		MustHaveValue(map[string]*string{"empty": nil}, "empty")
 	})

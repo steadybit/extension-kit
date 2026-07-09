@@ -1,8 +1,6 @@
 module github.com/steadybit/extension-kit
 
-go 1.25.0
-
-toolchain go1.25.4
+go 1.26.5
 
 require (
 	github.com/elastic/go-sysinfo v1.15.5
