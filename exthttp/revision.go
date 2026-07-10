@@ -35,9 +35,10 @@ func BumpRevision() {
 	revisionCounter.Add(1)
 }
 
-// RegisterIndexHandler registers the combined extension index at path, ETag-tagged with the current
-// Revision(). Extensions should use this instead of hand-rolling IfNoneMatchHandler with a
-// process-start timestamp.
-func RegisterIndexHandler[T any](path string, getter func() T) {
+// RegisterRevisionedHandler registers a handler that serves the getter's result at path, tagging the
+// response with the current Revision() as its ETag so it supports conditional GET (a matching
+// If-None-Match yields 304). Use this instead of hand-rolling IfNoneMatchHandler with a
+// process-start timestamp, e.g. for the combined extension index.
+func RegisterRevisionedHandler[T any](path string, getter func() T) {
 	RegisterHttpHandler(path, IfNoneMatchHandler(Revision, GetterAsHandler(getter)))
 }

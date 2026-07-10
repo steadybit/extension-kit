@@ -2,7 +2,7 @@
 
 ## (next)
 
-- feat: `exthttp.Revision()`/`BumpRevision()` and `exthttp.RegisterIndexHandler` centralize the extension index ETag. The revision is seeded with a startup nonce and bumped whenever a kit registers/clears a describable element, so the agent's index-response cache invalidates on registration changes without relying on a process restart. Extensions can replace the hand-rolled `startedAt` + `IfNoneMatchHandler` boilerplate with `exthttp.RegisterIndexHandler("/", getExtensionList)`.
+- feat: `exthttp.Revision()`/`BumpRevision()` and `exthttp.RegisterRevisionedHandler` centralize the extension index ETag. The revision is seeded with a startup nonce and bumped whenever a kit registers/clears a describable element, so the agent's index-response cache invalidates on registration changes without relying on a process restart. Extensions can replace the hand-rolled `startedAt` + `IfNoneMatchHandler` boilerplate with `exthttp.RegisterRevisionedHandler("/", getExtensionList)`.
 
 ## 1.10.8
 
