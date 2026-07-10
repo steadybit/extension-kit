@@ -2,6 +2,8 @@
 
 ## (next)
 
+- feat: `exthttp.Revision()`/`BumpRevision()` and `exthttp.RegisterIndexHandler` centralize the extension index ETag. The revision is seeded with a startup nonce and bumped whenever a kit registers/clears a describable element, so the agent's index-response cache invalidates on registration changes without relying on a process restart. Extensions can replace the hand-rolled `startedAt` + `IfNoneMatchHandler` boilerplate with `exthttp.RegisterIndexHandler("/", getExtensionList)`.
+
 ## 1.10.8
 
 - fix: reject a request with a 400 and stop processing when its body can't be read, instead of falling through and running the handler with a nil body after the response was already written (`exthttp` request-logging middleware)
