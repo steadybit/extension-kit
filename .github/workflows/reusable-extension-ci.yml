@@ -124,7 +124,7 @@ jobs:
       charts_only: ${{ steps.changes.outputs.other-than-charts == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # NOSONAR githubactions:S7637 - dorny/paths-filter v4.0.0, established org convention
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # NOSONAR githubactions:S7637 - dorny/paths-filter v4.0.2, established org convention
         id: changes
         with:
           base: ${{ github.ref }}
