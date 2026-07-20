@@ -168,8 +168,11 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        # Version pinned for reproducibility (this runs at release time, so avoid a surprise major bump).
+        # Note: no --ignore-scripts here (unlike the semver install below) because snyk's postinstall
+        # bootstraps its CLI binary.
         run: |
-          npm install -g snyk
+          npm install -g snyk@1.1306.1
           snyk test --org=${{ vars.SNYK_ORG_ID }} --severity-threshold=high --project-name=${{ github.repository }} --target-reference=${{ github.ref_name }}
 
       - name: Download e2e coverage files
