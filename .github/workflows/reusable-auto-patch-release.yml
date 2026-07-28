@@ -1,8 +1,10 @@
 ##
 # This workflow is intended to run on a weekly schedule (Mondays).
 # It cuts a patch release if all commits since the latest version tag are
-# "safe" (dependabot bumps, trivyignore-only changes, the auto-emitted
-# chart-version bump). Otherwise it skips and reports the reason to Slack.
+# "safe" (dependabot bumps, trivyignore-only changes). Commits matching the
+# ignore regex (docs, the auto-emitted chart-version bump, ...) or carrying
+# a [skip ci] marker are non-events. Otherwise it skips and reports the
+# reason to Slack.
 #
 # The pushed tag triggers each repo's existing ci.yml (push.tags: 'v*'),
 # which runs the existing reusable CI -> GoReleaser -> full release.
@@ -38,7 +40,8 @@ on:
           appear in CHANGELOG.md. If every commit in the range matches, the
           workflow silently exits with no-commits. Default skips the
           auto-emitted helm chart bumps (legacy and current message), docs
-          commits, and trivy-ignore-list updates.
+          commits, and trivy-ignore-list updates. Commits whose message
+          contains [skip ci] are always ignored, regardless of this regex.
       slack_channel:
         type: string
         default: C0BA547TUKC
@@ -127,6 +130,10 @@ jobs:
             if [ -n "$IGNORE_REGEX" ] && echo "$subject" | grep -qE "$IGNORE_REGEX"; then
               assessment="ignored"
               echo "  ignored                $sha  $subject"
+              ignored=$((ignored + 1))
+            elif [[ "$(git log -1 --format='%B' "$sha")" == *"[skip ci]"* ]]; then
+              assessment="ignored"
+              echo "  ignored ([skip ci])    $sha  $subject"
               ignored=$((ignored + 1))
             elif [[ "$author_email" == *"dependabot[bot]"* ]]; then
               assessment="safe"
