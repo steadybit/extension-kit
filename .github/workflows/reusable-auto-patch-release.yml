@@ -273,10 +273,15 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Repos that keep no changelog (sidecars, helper binaries) still get
+          # tagged — there is just no commit to push alongside the tag.
           if [ ! -f CHANGELOG.md ]; then
-            echo "::error::CHANGELOG.md not found in repo root"
-            exit 1
+            echo "::notice::No CHANGELOG.md in repo root — tagging ${NEXT_VERSION} without a changelog commit"
+            git tag "$NEXT_VERSION"
+            git push origin "$NEXT_VERSION"
+            exit 0
           fi
+
           if ! head -1 CHANGELOG.md | grep -q '^# Changelog'; then
             echo "::error::CHANGELOG.md does not start with '# Changelog'"
             exit 1
@@ -306,11 +311,15 @@ jobs:
           BULLETS: ${{ steps.next.outputs.changelog }}
         run: |
           echo "DRY RUN: would release ${NEXT_VERSION} (${COMMIT_COUNT} safe commits since ${LATEST_TAG})"
-          echo "DRY RUN: would prepend the following section to CHANGELOG.md:"
-          printf '  ## %s\n\n' "$NEXT_VERSION"
-          echo "$BULLETS" | sed 's/^/  /'
-          echo ""
-          echo "DRY RUN: would commit 'chore: update changelog for ${NEXT_VERSION}', tag ${NEXT_VERSION}, push atomically"
+          if [ -f CHANGELOG.md ]; then
+            echo "DRY RUN: would prepend the following section to CHANGELOG.md:"
+            printf '  ## %s\n\n' "$NEXT_VERSION"
+            echo "$BULLETS" | sed 's/^/  /'
+            echo ""
+            echo "DRY RUN: would commit 'chore: update changelog for ${NEXT_VERSION}', tag ${NEXT_VERSION}, push atomically"
+          else
+            echo "DRY RUN: no CHANGELOG.md in repo root — would tag ${NEXT_VERSION} and push the tag only"
+          fi
           echo "DRY RUN: Slack notification suppressed"
 
       - name: Notify Slack on release
