@@ -32,6 +32,35 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+  # The generated query language parser is checked in, so it can go stale against the grammar it was
+  # generated from. Regenerate and fail on a diff. (Whether the grammar itself still matches the
+  # platform's is checked in the platform repository — see extquery/grammar/.)
+  extquery-codegen:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '^1.26.5'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
+
+      - name: Regenerate parser
+        run: ./extquery/generate.sh
+
+      - name: Ensure the checked-in parser matches the grammar
+        run: |
+          if ! git diff --exit-code -- extquery/internal/gen; then
+            echo "::error::extquery/internal/gen is stale. Run ./extquery/generate.sh and commit the result."
+            exit 1
+          fi
+
   build-windows:
     if: github.event_name == 'push'
     runs-on: windows-latest

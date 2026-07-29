@@ -3,6 +3,7 @@ module github.com/steadybit/extension-kit
 go 1.26.5
 
 require (
+	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/elastic/go-sysinfo v1.15.5
 	github.com/google/uuid v1.6.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -24,6 +25,7 @@ require (
 	github.com/prometheus/procfs v0.19.2 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
+	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	howett.net/plist v1.0.1 // indirect

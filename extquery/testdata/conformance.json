@@ -1,0 +1,521 @@
+{
+  "$comment": [
+    "Shared conformance corpus for the Steadybit query language.",
+    "",
+    "This file is the contract between the implementations of the language: the Java evaluator in",
+    "the platform (TargetPredicate#matches), the jOOQ/SQL translation (TargetPredicateCondition),",
+    "and the Go evaluator here (extquery.Parse). A copy is checked into each repository and driven",
+    "as a table test, so a semantic change that lands in one implementation fails the others.",
+    "",
+    "Each case parses `query`, evaluates it against `attributes`, and expects `matches`.",
+    "An absent key is expressed by simply omitting it from `attributes`.",
+    "",
+    "Not expressible here, because the grammar has no syntax for it: an empty value list. A",
+    "positive membership over an empty set matches nothing and a negated one matches everything,",
+    "but `IN ()` is a parse error, so that rule is only reachable through a structured predicate",
+    "and is covered by each implementation's own unit tests instead.",
+    "",
+    "Keep the cases to states a real target can be in. An attribute value is @NotBlank and the",
+    "platform's write path drops a blank one (removing the key with it), so a case asserting on an",
+    "empty-string value tests something that cannot occur — an in-memory evaluator will happily",
+    "answer it, and the SQL one will disagree, for no useful reason.",
+    "",
+    "The `contains: ...` cases naming an underscore or a percent sign guard a real regression: the",
+    "platform's SQL backend builds a LIKE pattern from the query value, so an unescaped `_` or `%`",
+    "there silently becomes a wildcard while `~` means plain substring containment everywhere else."
+  ],
+  "cases": [
+    {
+      "name": "empty query matches everything",
+      "query": "",
+      "attributes": {},
+      "matches": true
+    },
+    {
+      "name": "blank query matches everything",
+      "query": "   ",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": true
+    },
+
+    {
+      "name": "equals matches",
+      "query": "k8s.namespace=\"prod\"",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": true
+    },
+    {
+      "name": "equals is case sensitive",
+      "query": "k8s.namespace=\"PROD\"",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": false
+    },
+    {
+      "name": "equals matches any value of a multi-valued attribute",
+      "query": "k8s.label=\"b\"",
+      "attributes": { "k8s.label": ["a", "b", "c"] },
+      "matches": true
+    },
+    {
+      "name": "equals on an absent key is false",
+      "query": "k8s.namespace=\"prod\"",
+      "attributes": { "other": ["prod"] },
+      "matches": false
+    },
+    {
+      "name": "equals unquoted value",
+      "query": "k8s.namespace=prod",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": true
+    },
+    {
+      "name": "equals does not match on substring",
+      "query": "k8s.namespace=\"pro\"",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": false
+    },
+
+    {
+      "name": "not equals matches when no value equals",
+      "query": "k8s.namespace!=\"prod\"",
+      "attributes": { "k8s.namespace": ["staging"] },
+      "matches": true
+    },
+    {
+      "name": "not equals is false when any value equals",
+      "query": "k8s.namespace!=\"prod\"",
+      "attributes": { "k8s.namespace": ["staging", "prod"] },
+      "matches": false
+    },
+    {
+      "name": "not equals on an absent key is true",
+      "query": "k8s.namespace!=\"prod\"",
+      "attributes": { "other": ["x"] },
+      "matches": true
+    },
+
+    {
+      "name": "equals ignore case matches",
+      "query": "k8s.namespace=*\"PROD\"",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": true
+    },
+    {
+      "name": "equals ignore case still requires a full match",
+      "query": "k8s.namespace=*\"PRO\"",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": false
+    },
+    {
+      "name": "not equals ignore case",
+      "query": "k8s.namespace!=*\"PROD\"",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": false
+    },
+    {
+      "name": "not equals ignore case on a different value",
+      "query": "k8s.namespace!=*\"PROD\"",
+      "attributes": { "k8s.namespace": ["staging"] },
+      "matches": true
+    },
+
+    {
+      "name": "contains matches a substring",
+      "query": "image~\"nginx\"",
+      "attributes": { "image": ["docker.io/library/nginx:1.25"] },
+      "matches": true
+    },
+    {
+      "name": "contains is case sensitive",
+      "query": "image~\"NGINX\"",
+      "attributes": { "image": ["docker.io/library/nginx:1.25"] },
+      "matches": false
+    },
+    {
+      "name": "contains on an absent key is false",
+      "query": "image~\"nginx\"",
+      "attributes": {},
+      "matches": false
+    },
+    {
+      "name": "not contains matches when no value contains",
+      "query": "image!~\"nginx\"",
+      "attributes": { "image": ["docker.io/library/redis:7"] },
+      "matches": true
+    },
+    {
+      "name": "not contains is false when one value contains",
+      "query": "image!~\"nginx\"",
+      "attributes": { "image": ["redis:7", "nginx:1.25"] },
+      "matches": false
+    },
+    {
+      "name": "contains ignore case",
+      "query": "image~*\"NGINX\"",
+      "attributes": { "image": ["docker.io/library/nginx:1.25"] },
+      "matches": true
+    },
+    {
+      "name": "not contains ignore case",
+      "query": "image!~*\"NGINX\"",
+      "attributes": { "image": ["docker.io/library/nginx:1.25"] },
+      "matches": false
+    },
+
+    {
+      "name": "contains: an underscore in the value is literal, not a wildcard",
+      "query": "k8s.container.name~\"payment_service\"",
+      "attributes": { "k8s.container.name": ["payment-service"] },
+      "matches": false
+    },
+    {
+      "name": "contains: an underscore matches itself",
+      "query": "k8s.container.name~\"payment_service\"",
+      "attributes": { "k8s.container.name": ["checkout-payment_service-1"] },
+      "matches": true
+    },
+    {
+      "name": "contains: a percent sign in the value is literal, not a wildcard",
+      "query": "cpu.limit~\"50%\"",
+      "attributes": { "cpu.limit": ["500m"] },
+      "matches": false
+    },
+    {
+      "name": "contains: a percent sign matches itself",
+      "query": "cpu.limit~\"50%\"",
+      "attributes": { "cpu.limit": ["50%"] },
+      "matches": true
+    },
+    {
+      "name": "contains ignore case: an underscore in the value is literal",
+      "query": "k8s.container.name~*\"PAYMENT_SERVICE\"",
+      "attributes": { "k8s.container.name": ["payment-service"] },
+      "matches": false
+    },
+    {
+      "name": "not contains: an underscore in the value is literal",
+      "query": "k8s.container.name!~\"payment_service\"",
+      "attributes": { "k8s.container.name": ["payment-service"] },
+      "matches": true
+    },
+
+    {
+      "name": "in matches one of the listed values",
+      "query": "k8s.namespace IN (prod, staging)",
+      "attributes": { "k8s.namespace": ["staging"] },
+      "matches": true
+    },
+    {
+      "name": "in does not match an unlisted value",
+      "query": "k8s.namespace IN (prod, staging)",
+      "attributes": { "k8s.namespace": ["dev"] },
+      "matches": false
+    },
+    {
+      "name": "in with quoted values",
+      "query": "k8s.namespace IN (\"prod\", \"staging\")",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": true
+    },
+    {
+      "name": "in on an absent key is false",
+      "query": "k8s.namespace IN (prod)",
+      "attributes": {},
+      "matches": false
+    },
+    {
+      "name": "not in matches an unlisted value",
+      "query": "k8s.namespace NOT IN (prod, staging)",
+      "attributes": { "k8s.namespace": ["dev"] },
+      "matches": true
+    },
+    {
+      "name": "not in is false when a value is listed",
+      "query": "k8s.namespace NOT IN (prod, staging)",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": false
+    },
+    {
+      "name": "not in on an absent key is true",
+      "query": "k8s.namespace NOT IN (prod)",
+      "attributes": {},
+      "matches": true
+    },
+    {
+      "name": "in matches when any attribute value is listed",
+      "query": "k8s.label IN (b)",
+      "attributes": { "k8s.label": ["a", "b"] },
+      "matches": true
+    },
+
+    {
+      "name": "is present",
+      "query": "k8s.namespace IS PRESENT",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": true
+    },
+    {
+      "name": "is present on an absent key",
+      "query": "k8s.namespace IS PRESENT",
+      "attributes": { "other": ["x"] },
+      "matches": false
+    },
+    {
+      "name": "is not present on an absent key",
+      "query": "k8s.namespace IS NOT PRESENT",
+      "attributes": { "other": ["x"] },
+      "matches": true
+    },
+    {
+      "name": "is not present on a present key",
+      "query": "k8s.namespace IS NOT PRESENT",
+      "attributes": { "k8s.namespace": ["prod"] },
+      "matches": false
+    },
+
+    {
+      "name": "count equals",
+      "query": "count(k8s.label)=2",
+      "attributes": { "k8s.label": ["a", "b"] },
+      "matches": true
+    },
+    {
+      "name": "count equals mismatch",
+      "query": "count(k8s.label)=3",
+      "attributes": { "k8s.label": ["a", "b"] },
+      "matches": false
+    },
+    {
+      "name": "count not equals",
+      "query": "count(k8s.label)!=3",
+      "attributes": { "k8s.label": ["a", "b"] },
+      "matches": true
+    },
+    {
+      "name": "count greater than",
+      "query": "count(k8s.label)>1",
+      "attributes": { "k8s.label": ["a", "b"] },
+      "matches": true
+    },
+    {
+      "name": "count greater than or equal",
+      "query": "count(k8s.label)>=2",
+      "attributes": { "k8s.label": ["a", "b"] },
+      "matches": true
+    },
+    {
+      "name": "count less than",
+      "query": "count(k8s.label)<3",
+      "attributes": { "k8s.label": ["a", "b"] },
+      "matches": true
+    },
+    {
+      "name": "count less than or equal",
+      "query": "count(k8s.label)<=2",
+      "attributes": { "k8s.label": ["a", "b"] },
+      "matches": true
+    },
+    {
+      "name": "count on an absent key is false even when the comparison would hold for zero",
+      "query": "count(k8s.label)<1",
+      "attributes": {},
+      "matches": false
+    },
+    {
+      "name": "count not equals on an absent key is false",
+      "query": "count(k8s.label)!=5",
+      "attributes": {},
+      "matches": false
+    },
+    {
+      "name": "count equals zero on an absent key is false",
+      "query": "count(k8s.label)=0",
+      "attributes": {},
+      "matches": false
+    },
+
+    {
+      "name": "and requires both sides",
+      "query": "a=1 AND b=2",
+      "attributes": { "a": ["1"], "b": ["2"] },
+      "matches": true
+    },
+    {
+      "name": "and fails when one side fails",
+      "query": "a=1 AND b=2",
+      "attributes": { "a": ["1"], "b": ["3"] },
+      "matches": false
+    },
+    {
+      "name": "or needs one side",
+      "query": "a=1 OR b=2",
+      "attributes": { "b": ["2"] },
+      "matches": true
+    },
+    {
+      "name": "or fails when neither side holds",
+      "query": "a=1 OR b=2",
+      "attributes": { "a": ["9"] },
+      "matches": false
+    },
+    {
+      "name": "not inverts",
+      "query": "NOT a=1",
+      "attributes": { "a": ["2"] },
+      "matches": true
+    },
+    {
+      "name": "not inverts a matching clause",
+      "query": "NOT a=1",
+      "attributes": { "a": ["1"] },
+      "matches": false
+    },
+    {
+      "name": "not over a parenthesised or",
+      "query": "NOT (a=1 OR a=2)",
+      "attributes": { "a": ["3"] },
+      "matches": true
+    },
+    {
+      "name": "not over a parenthesised or, matching",
+      "query": "NOT (a=1 OR a=2)",
+      "attributes": { "a": ["2"] },
+      "matches": false
+    },
+    {
+      "name": "lower case keywords",
+      "query": "a=1 and b=2",
+      "attributes": { "a": ["1"], "b": ["2"] },
+      "matches": true
+    },
+    {
+      "name": "symbolic keywords",
+      "query": "a=1 && b=2",
+      "attributes": { "a": ["1"], "b": ["2"] },
+      "matches": true
+    },
+    {
+      "name": "symbolic or",
+      "query": "a=1 || b=2",
+      "attributes": { "b": ["2"] },
+      "matches": true
+    },
+    {
+      "name": "symbolic not",
+      "query": "!a=1",
+      "attributes": { "a": ["2"] },
+      "matches": true
+    },
+
+    {
+      "name": "and binds tighter than or: left conjunction satisfied",
+      "query": "a=1 AND b=2 OR c=3",
+      "attributes": { "a": ["1"], "b": ["2"] },
+      "matches": true
+    },
+    {
+      "name": "and binds tighter than or: right disjunct satisfied",
+      "query": "a=1 AND b=2 OR c=3",
+      "attributes": { "c": ["3"] },
+      "matches": true
+    },
+    {
+      "name": "and binds tighter than or: partial conjunction is not enough",
+      "query": "a=1 AND b=2 OR c=3",
+      "attributes": { "a": ["1"] },
+      "matches": false
+    },
+    {
+      "name": "parentheses override precedence",
+      "query": "a=1 AND (b=2 OR c=3)",
+      "attributes": { "a": ["1"], "c": ["3"] },
+      "matches": true
+    },
+    {
+      "name": "parentheses override precedence, unsatisfied",
+      "query": "a=1 AND (b=2 OR c=3)",
+      "attributes": { "c": ["3"] },
+      "matches": false
+    },
+    {
+      "name": "redundant parentheses",
+      "query": "(a=1)",
+      "attributes": { "a": ["1"] },
+      "matches": true
+    },
+    {
+      "name": "nested composition",
+      "query": "a=1 AND b=2 OR (c=3 OR d=4) AND e=5",
+      "attributes": { "c": ["3"], "e": ["5"] },
+      "matches": true
+    },
+
+    {
+      "name": "quoted key containing an operator character",
+      "query": "\"k8s.label.app.kubernetes.io/name\"=\"gateway\"",
+      "attributes": { "k8s.label.app.kubernetes.io/name": ["gateway"] },
+      "matches": true
+    },
+    {
+      "name": "escaped quote inside a value",
+      "query": "note=\"say \\\"hi\\\"\"",
+      "attributes": { "note": ["say \"hi\""] },
+      "matches": true
+    },
+    {
+      "name": "escaped backslash inside a value",
+      "query": "path=\"C:\\\\temp\"",
+      "attributes": { "path": ["C:\\temp"] },
+      "matches": true
+    },
+    {
+      "name": "value with spaces requires quoting",
+      "query": "label=\"two words\"",
+      "attributes": { "label": ["two words"] },
+      "matches": true
+    },
+
+    {
+      "name": "target type pseudo-attribute",
+      "query": "target.type=\"com.steadybit.extension_kubernetes.kubernetes-deployment\"",
+      "attributes": { "target.type": ["com.steadybit.extension_kubernetes.kubernetes-deployment"] },
+      "matches": true
+    },
+    {
+      "name": "real advice applicability query",
+      "query": "(target.type=\"com.steadybit.extension_kubernetes.kubernetes-daemonset\" OR target.type=\"com.steadybit.extension_kubernetes.kubernetes-deployment\") AND k8s.specification.probes.summary IS PRESENT",
+      "attributes": {
+        "target.type": ["com.steadybit.extension_kubernetes.kubernetes-deployment"],
+        "k8s.specification.probes.summary": ["OK"]
+      },
+      "matches": true
+    },
+    {
+      "name": "real advice applicability query, wrong target type",
+      "query": "(target.type=\"com.steadybit.extension_kubernetes.kubernetes-daemonset\" OR target.type=\"com.steadybit.extension_kubernetes.kubernetes-deployment\") AND k8s.specification.probes.summary IS PRESENT",
+      "attributes": {
+        "target.type": ["com.steadybit.extension_kubernetes.kubernetes-pod"],
+        "k8s.specification.probes.summary": ["OK"]
+      },
+      "matches": false
+    },
+    {
+      "name": "real advice action-needed query",
+      "query": "k8s.specification.probes.summary!=\"OK\"",
+      "attributes": { "k8s.specification.probes.summary": ["*-missing"] },
+      "matches": true
+    },
+    {
+      "name": "realistic discovery exclusion",
+      "query": "k8s.namespace IN (kube-system, istio-system) OR k8s.label.tier=\"canary\"",
+      "attributes": { "k8s.namespace": ["kube-system"], "k8s.label.tier": ["stable"] },
+      "matches": true
+    },
+    {
+      "name": "realistic discovery exclusion, not excluded",
+      "query": "k8s.namespace IN (kube-system, istio-system) OR k8s.label.tier=\"canary\"",
+      "attributes": { "k8s.namespace": ["shop"], "k8s.label.tier": ["stable"] },
+      "matches": false
+    }
+  ]
+}

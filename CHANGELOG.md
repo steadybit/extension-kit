@@ -2,6 +2,7 @@
 
 ## (next)
 
+- feat: new `extquery` package parses and evaluates Steadybit target query language strings. `extquery.Validate(query)` / `ValidateAll(queries...)` return a `*ParseError` with line and column — intended for the queries extensions embed in their advice and action definitions (`AssessmentQueryApplicable`, `AssessmentQueryExclude`, `TargetSelection.TargetQuery`, `TargetSelectionTemplate.Query`), which are otherwise only checked by the platform once the extension is released. `extquery.Parse(query)` returns a reusable, concurrency-safe `Predicate` that matches against a target's attributes, so extensions can filter targets before they reach the agent; adapt attributes with `MapAttributes` or `AttributesFunc`. The parser is generated from the platform's ANTLR grammar and matching behaviour is pinned by a conformance corpus shared with the platform; see `extquery/README.md`.
 - feat: `exthttp.Revision()`/`BumpRevision()` and `exthttp.RegisterRevisionedHandler` centralize the extension index ETag. The revision is seeded with a startup nonce and bumped whenever a kit registers/clears a describable element, so the agent's index-response cache invalidates on registration changes without relying on a process restart. Extensions can replace the hand-rolled `startedAt` + `IfNoneMatchHandler` boilerplate with `exthttp.RegisterRevisionedHandler("/", getExtensionList)`.
 
 ## 1.10.8
