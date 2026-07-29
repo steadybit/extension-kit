@@ -47,7 +47,7 @@ func TestAdviceQueriesAreValid(t *testing.T) {
 
 ```go
 err := extquery.Validate("k8s.namespace=")
-// failed to parse query at line 1 column 14: mismatched input '<EOF>' expecting {QUOTED, TERM, INTEGER, VARIABLE, PLACEHOLDER}
+// failed to parse query at line 1 column 14: missing {INTEGER, QUOTED, VARIABLE, PLACEHOLDER, TERM} at '<EOF>'
 ```
 
 `ValidateAll` joins the failures of several queries so a whole definition reports all of its
