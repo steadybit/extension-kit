@@ -111,27 +111,8 @@ on:
         description: Identity provider to use to be able to push to gcp artifact registry
 
 jobs:
-  detect-changes:
-    name: Detect chart-only changes
-    runs-on: ubuntu-latest
-    outputs:
-      # 'other-than-charts' is 'false' when no file outside charts/ changed.
-      # Restricted to pushes to main so tags and pull requests always get the full pipeline.
-      charts_only: ${{ steps.changes.outputs.other-than-charts == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # NOSONAR githubactions:S7637 - dorny/paths-filter v4.0.2, established org convention
-        id: changes
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            other-than-charts:
-              - '!charts/**'
-
   audit:
     name: Audit
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.charts_only != 'true'
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 60
     env:
@@ -412,9 +393,7 @@ jobs:
   test-helm-charts:
     name: "Test Helm Charts"
     runs-on: ubuntu-latest
-    needs: [detect-changes, audit]
-    # Runs when audit succeeds and, on a chart-only push to main, when audit was skipped.
-    if: ${{ !cancelled() && needs.audit.result != 'failure' }}
+    needs: [audit]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
