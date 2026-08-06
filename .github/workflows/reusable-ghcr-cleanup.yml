@@ -29,8 +29,11 @@ jobs:
           package: ${{ github.event.repository.name }}
           dry-run: ${{ inputs.dry-run }}
           use-regex: true
-          exclude-tags: '^(v?\d+\.\d+\.\d+[-+.0-9A-Za-z]*|main|latest)$'
+          # Only main/latest/published-version (vX.Y.Z, no -next snapshot suffix) tags survive.
+          # Everything else - pr-*, X.Y.Z-<timestamp>-next snapshots, ad-hoc branch tags - is fair game.
+          exclude-tags: '^(v?\d+\.\d+\.\d+|main|latest)$'
           older-than: 30 days
+          keep-n-tagged: 0
           keep-n-untagged: 10
           validate: true
 
