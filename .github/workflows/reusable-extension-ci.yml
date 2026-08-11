@@ -144,10 +144,11 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         # Version pinned for reproducibility (this runs at release time, so avoid a surprise major bump).
-        # Note: no --ignore-scripts here (unlike the semver install below) because snyk's postinstall
-        # bootstraps its CLI binary.
+        # Note: --allow-scripts=snyk (npm 12 blocks install scripts by default) because snyk's postinstall
+        # bootstraps its CLI binary; without it the binary is lazily downloaded on first run instead.
         run: |
-          npm install -g snyk@1.1306.1
+          npm install -g npm@12
+          npm install -g --allow-scripts=snyk snyk@1.1306.1
           snyk test --org=${{ vars.SNYK_ORG_ID }} --severity-threshold=high --project-name=${{ github.repository }} --target-reference=${{ github.ref_name }}
 
       - name: Download e2e coverage files
@@ -442,6 +443,7 @@ jobs:
 
       # this commit will effectively cause another run of the workflow which then actually performs the helm chart release
       - run: |
+          npm install -g npm@12
           npm install --ignore-scripts -g semver@7.8.1
           make chart-bump-version APP_VERSION="${{ needs.build-images.outputs.version }}"
           git config user.name "$GITHUB_ACTOR"
