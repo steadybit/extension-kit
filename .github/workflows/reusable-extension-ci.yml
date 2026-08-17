@@ -26,7 +26,7 @@ on:
       go_version:
         type: string
         required: false
-        default: '1.26.5'
+        default: '1.26'
       goreleaser_version:
         type: string
         required: false
@@ -124,7 +124,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version: ${{ inputs.go_version }}
 
       - name: Prepare audit
         if: ${{ inputs.run_make_prepare_audit }}
@@ -330,7 +330,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version: ${{ inputs.go_version }}
 
       - name: Export GPG key
         env:
@@ -517,7 +517,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version: ${{ inputs.go_version }}
 
       - name: Extract tag from GITHUB_REF
         id: get_tag
