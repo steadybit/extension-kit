@@ -125,6 +125,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ inputs.go_version }}
+          check-latest: true
 
       - name: Prepare audit
         if: ${{ inputs.run_make_prepare_audit }}
@@ -331,6 +332,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ inputs.go_version }}
+          check-latest: true
 
       - name: Export GPG key
         env:
@@ -518,6 +520,7 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: ${{ inputs.go_version }}
+          check-latest: true
 
       - name: Extract tag from GITHUB_REF
         id: get_tag
