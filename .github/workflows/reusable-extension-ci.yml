@@ -482,7 +482,33 @@ jobs:
         run: |
           helm repo add steadybit https://steadybit.github.io/helm-charts
 
+      # Re-running CI on a chart-bump commit would otherwise repackage the version that commit
+      # already released and fail with "tag_name already_exists". Skip only when every chart's
+      # version tag points at this exact commit, i.e. this commit's release already happened.
+      # A chart edited without a version bump leaves its tag on an earlier commit, so the release
+      # still runs and still fails loudly.
+      - name: Skip release if this commit was already chart-released
+        id: chart_state
+        run: |
+          git fetch --tags --force --quiet
+          head="$(git rev-parse HEAD)"
+          already_released=true
+          for chart_dir in charts/*/; do
+            [ -f "${chart_dir}Chart.yaml" ] || continue
+            name="$(basename "$chart_dir")"
+            version="$(grep -E '^version:' "${chart_dir}Chart.yaml" | head -1 | awk '{print $2}' | tr -d '"'"'"'')"
+            tag_sha="$(git rev-parse -q --verify "refs/tags/${name}-${version}^{commit}" || true)"
+            if [ "$tag_sha" != "$head" ]; then
+              echo "${name}-${version}: not released from this commit (tag -> ${tag_sha:-<none>})"
+              already_released=false
+            else
+              echo "${name}-${version}: already released from this commit"
+            fi
+          done
+          echo "already_released=$already_released" >> "$GITHUB_OUTPUT"
+
       - name: Run chart-releaser
+        if: steps.chart_state.outputs.already_released != 'true'
         uses: helm/chart-releaser-action@cae68fefc6b5f367a0275617c9f83181ba54714f # v1.7.0
         with:
           charts_dir: charts
