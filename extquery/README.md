@@ -56,6 +56,10 @@ problems at once.
 ### What is and is not checked
 
 - An **empty query is valid** and means "match everything", consistent with the platform.
+- **Line comments are supported**: `//` to the end of the line, on its own line or trailing a query.
+  They are lexed onto the hidden channel, so they never affect what a query selects. Note a query
+  made up of nothing but comments has no tokens on the default channel, which makes it the empty
+  query — and so match-all, not match-nothing.
 - **Only syntax** is checked. Whether the referenced attributes exist, or whether the query selects
   anything, is not knowable here.
 - **Variable (`{{key}}`) and template-placeholder (`[[key]]`) markers are rejected**, quoted or

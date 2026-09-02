@@ -65,6 +65,15 @@ TERM : TERM_START_CHAR TERM_CHAR*;
 
 WHITESPACE : [ \t\n\r\u3000]+ -> channel(HIDDEN);
 
+// Line comments, so a query can carry the reasoning behind an exclusion (ticket 24059). Like
+// WHITESPACE these go to the hidden channel, which is what keeps the parser grammar untouched and
+// every stored query parsing exactly as before. Two near-collisions that aren't: TERM_START_CHAR
+// excludes '/', so no bare term can ever begin with a slash; and QUOTED consumes up to its closing
+// quote, so a '//' inside a quoted value stays part of the value.
+// '//' rather than '#': TERM_START_CHAR does *not* exclude '#', so '#foo' is a legal term today and
+// '#' would silently reinterpret stored queries.
+LINE_COMMENT : '//' ~[\r\n]* -> channel(HIDDEN);
+
 fragment QUOTED_CHAR : ~["\\] | ESCAPED_CHAR;
 
 fragment TERM_START_CHAR

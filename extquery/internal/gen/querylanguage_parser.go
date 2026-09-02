@@ -42,6 +42,7 @@ func querylanguageparserParserInit() {
 		"OP_TILDE", "OP_NOT_TILDE", "OP_TILDE_IGNORE_CASE", "OP_NOT_TILDE_IGNORE_CASE",
 		"OP_GREATER_THAN", "OP_GREATER_THAN_EQUAL", "OP_LESS_THAN", "OP_LESS_THAN_EQUAL",
 		"INTEGER", "QUOTED", "VARIABLE", "PLACEHOLDER", "TERM", "WHITESPACE",
+		"LINE_COMMENT",
 	}
 	staticData.RuleNames = []string{
 		"topLevelQuery", "query", "clause", "isPresentClause", "inClause", "compareClause",
@@ -49,7 +50,7 @@ func querylanguageparserParserInit() {
 	}
 	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
-		4, 1, 28, 96, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
+		4, 1, 29, 96, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
 		4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 2, 8, 7, 8, 2, 9, 7, 9, 2, 10, 7,
 		10, 1, 0, 3, 0, 24, 8, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 		1, 1, 1, 1, 1, 3, 1, 36, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1,
@@ -153,6 +154,7 @@ const (
 	QueryLanguageParserPLACEHOLDER              = 26
 	QueryLanguageParserTERM                     = 27
 	QueryLanguageParserWHITESPACE               = 28
+	QueryLanguageParserLINE_COMMENT             = 29
 )
 
 // QueryLanguageParser rules.
