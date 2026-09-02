@@ -51,11 +51,34 @@ func TestEmptyComposite(t *testing.T) {
 }
 
 func TestParse_emptyQueryMatchesEverything(t *testing.T) {
-	for _, query := range []string{"", "   ", "\n\t "} {
-		predicate, err := Parse(query)
-		require.NoError(t, err)
-		assert.True(t, predicate.Matches(MapAttributes{}))
-		assert.True(t, predicate.Matches(MapAttributes{"anything": {"at-all"}}))
+	// A comment-only query belongs here rather than in a section of its own: comments sit on the
+	// hidden channel, so nothing reaches the default channel and this *is* the empty query. The
+	// platform agrees (QueryLanguageTest, parser.spec.ts) and it matters that all three do —
+	// commenting a blast radius out widens it to everything rather than emptying it.
+	for _, query := range []string{"", "   ", "\n\t ", "// everything, for now", "// one\n// two"} {
+		t.Run(query, func(t *testing.T) {
+			predicate, err := Parse(query)
+			require.NoError(t, err)
+			assert.True(t, predicate.Matches(MapAttributes{}))
+			assert.True(t, predicate.Matches(MapAttributes{"anything": {"at-all"}}))
+		})
+	}
+}
+
+// Comments must not change what a query selects, only what it says.
+func TestParse_commentsDoNotAffectMatching(t *testing.T) {
+	commented, err := Parse("// only the canary tier, see INC-4821\nk8s.namespace=prod // and nothing else")
+	require.NoError(t, err)
+	plain, err := Parse("k8s.namespace=prod")
+	require.NoError(t, err)
+
+	for _, attributes := range []MapAttributes{
+		{"k8s.namespace": {"prod"}},
+		{"k8s.namespace": {"staging"}},
+		{},
+	} {
+		assert.Equal(t, plain.Matches(attributes), commented.Matches(attributes),
+			"a comment must not change the selection for %v", attributes)
 	}
 }
 

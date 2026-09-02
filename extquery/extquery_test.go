@@ -75,6 +75,18 @@ func TestValidate_accepts(t *testing.T) {
 		"foo in (a, b)",
 		"foo not in (a, b)",
 		"COUNT(foo)=1",
+
+		// line comments — on the hidden channel, so the parser never sees them
+		"// why we exclude the canary tier\nkey=value",
+		"key=value\n// trailing explanation",
+		"key=value // only this one",
+		"key=value\n// see INC-4821\nAND other=x",
+		// nothing but a comment: no tokens on the default channel, so this is the empty query
+		"// everything, for now",
+		// `//` inside a quoted value is part of the value, which is what keeps URLs working
+		`url="https://example.com/path"`,
+		// `//` directly after a term starts a comment; this used to be a lexer error
+		"key=value//not part of the value",
 	} {
 		t.Run(query, func(t *testing.T) {
 			assert.NoError(t, Validate(query))
@@ -109,6 +121,9 @@ func TestValidate_rejects(t *testing.T) {
 		"AND a=a",
 		"=value",
 		`key="unterminated`,
+
+		// a single slash is not a comment marker, and no token may start with one
+		"key=value / trailing",
 	} {
 		t.Run(query, func(t *testing.T) {
 			var parseErr *ParseError
