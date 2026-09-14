@@ -1,6 +1,6 @@
 module github.com/steadybit/extension-kit
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
@@ -12,7 +12,7 @@ require (
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.48.0
 )
 
 require (
