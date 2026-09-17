@@ -36,7 +36,7 @@ jobs:
           case "${{ github.event.pull_request.user.login }}" in
             ReuDa)           echo "token_name=CLAUDE_CODE_TOKEN_DANIEL" >> "$GITHUB_OUTPUT" ;;
             joshiste)        echo "token_name=CLAUDE_CODE_TOKEN_JOHANNES" >> "$GITHUB_OUTPUT" ;;
-            bertschneider)   echo "token_name=CLAUDE_CODE_TOKEN_NORBERT" >> "$GITHUB_OUTPUT" ;;
+            bertschneider)   echo "token_name=CLAUDE_CODE_TOKEN_ANTOINE" >> "$GITHUB_OUTPUT" ;;
             ManuelGerding)   echo "token_name=CLAUDE_CODE_TOKEN_MANUEL" >> "$GITHUB_OUTPUT" ;;
             achoimet)        echo "token_name=CLAUDE_CODE_TOKEN_ANTOINE" >> "$GITHUB_OUTPUT" ;;
             *)
