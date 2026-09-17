@@ -40,6 +40,11 @@ type ListenSpecification struct {
 var (
 	wrapper   *httpServerWrapper
 	serveCond = sync.NewCond(&sync.Mutex{})
+	// serving records whether the server has reached the point of accepting
+	// connections. WaitForServe needs it as a predicate: listen() holds
+	// serveCond.L from its first statement, so a waiter that has not acquired
+	// the lock yet is not waiting on the condition and misses the broadcast.
+	serving bool
 )
 
 func (spec *ListenSpecification) parseConfigurationFromEnvironment() {
@@ -118,6 +123,7 @@ func listen(opts ListenOpts) error {
 
 	success := false
 	serveCond.L.Lock()
+	serving = false
 	defer func() {
 		if !success {
 			serveCond.L.Unlock()
@@ -168,6 +174,7 @@ func listen(opts ListenOpts) error {
 		Name:  "StopExtensionHTTP",
 	})
 
+	serving = true
 	serveCond.Broadcast()
 	serveCond.L.Unlock()
 	success = true
@@ -180,10 +187,16 @@ func listen(opts ListenOpts) error {
 func WaitForServe() {
 	serveCond.L.Lock()
 	defer serveCond.L.Unlock()
-	serveCond.Wait()
+	for !serving {
+		serveCond.Wait()
+	}
 }
 
 func StopListen() {
+	serveCond.L.Lock()
+	serving = false
+	serveCond.L.Unlock()
+
 	if wrapper == nil || wrapper.server == nil {
 		return
 	}

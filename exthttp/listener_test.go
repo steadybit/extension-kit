@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/madflojo/testcerts"
 	"github.com/phayes/freeport"
@@ -290,5 +291,35 @@ func Test_hidePprofHandlers(t *testing.T) {
 
 			assert.Equal(t, tt.wantedStatus, w.Result().StatusCode)
 		})
+	}
+}
+
+// listen() holds serveCond.L from its first statement and broadcasts while
+// still holding it, so a WaitForServe that has not yet acquired the lock is not
+// waiting on the condition and never sees the broadcast. Sleeping here forces
+// exactly that order — the one that hung CI for ten minutes at a time — which
+// without the `serving` predicate blocks forever.
+func TestWaitForServeReturnsWhenServerStartedFirst(t *testing.T) {
+	port, err := freeport.GetFreePort()
+	require.NoError(t, err)
+
+	old := http.DefaultServeMux
+	defer func() { http.DefaultServeMux = old }()
+
+	go Listen(ListenOpts{Port: port})
+	defer StopListen()
+
+	time.Sleep(250 * time.Millisecond)
+
+	done := make(chan struct{})
+	go func() {
+		WaitForServe()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("WaitForServe blocked although the server was already serving")
 	}
 }
