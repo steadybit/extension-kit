@@ -15,16 +15,24 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func resetGlobals(t *testing.T) {
+// restoreGlobals snapshots the process-wide OTel globals before a test mutates
+// them and puts them back afterwards, so an SDK provider installed by one test
+// does not leak into the next one.
+func restoreGlobals(t *testing.T) {
 	t.Helper()
-	otel.SetTracerProvider(otel.GetTracerProvider())
-	extsignals.RemoveSignalHandlersByName(signalHandlerName)
+	prevProvider := otel.GetTracerProvider()
+	prevPropagator := otel.GetTextMapPropagator()
+	t.Cleanup(func() {
+		otel.SetTracerProvider(prevProvider)
+		otel.SetTextMapPropagator(prevPropagator)
+		extsignals.RemoveSignalHandlersByName(signalHandlerName)
+	})
 }
 
 func TestInitOpenTelemetry_SdkDisabled_InstallsNoopProvider(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "true")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-	defer resetGlobals(t)
+	restoreGlobals(t)
 
 	shutdown := InitOpenTelemetry()
 	require.NotNil(t, shutdown)
@@ -36,7 +44,8 @@ func TestInitOpenTelemetry_SdkDisabled_InstallsNoopProvider(t *testing.T) {
 func TestInitOpenTelemetry_MissingEndpoint_InstallsNoopProvider(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	defer resetGlobals(t)
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
+	restoreGlobals(t)
 
 	shutdown := InitOpenTelemetry()
 	require.NotNil(t, shutdown)
@@ -49,7 +58,7 @@ func TestInitOpenTelemetry_ValidEndpoint_InstallsSdkProvider(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
-	defer resetGlobals(t)
+	restoreGlobals(t)
 
 	shutdown := InitOpenTelemetry()
 	require.NotNil(t, shutdown)
@@ -66,7 +75,7 @@ func TestInitOpenTelemetry_ValidEndpoint_InstallsSdkProvider(t *testing.T) {
 func TestInitOpenTelemetry_ShutdownIdempotent(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-	defer resetGlobals(t)
+	restoreGlobals(t)
 
 	shutdown := InitOpenTelemetry()
 	require.NotNil(t, shutdown)
@@ -76,4 +85,48 @@ func TestInitOpenTelemetry_ShutdownIdempotent(t *testing.T) {
 
 	assert.NoError(t, shutdown(ctx))
 	assert.NoError(t, shutdown(ctx), "second shutdown should not error")
+}
+
+func TestInitOpenTelemetry_TracesEndpointAloneInstallsSdkProvider(t *testing.T) {
+	// The signal-specific variable is enough on its own; an operator that only
+	// sets OTEL_EXPORTER_OTLP_TRACES_ENDPOINT must still get a real provider.
+	t.Setenv("OTEL_SDK_DISABLED", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4318")
+	restoreGlobals(t)
+
+	shutdown := InitOpenTelemetry()
+	require.NotNil(t, shutdown)
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = shutdown(ctx)
+	}()
+
+	_, isSdk := otel.GetTracerProvider().(*sdktrace.TracerProvider)
+	assert.True(t, isSdk, "TracerProvider should be the sdktrace provider when only the traces endpoint is set")
+}
+
+func TestResolveProtocol(t *testing.T) {
+	tests := []struct {
+		name           string
+		generic        string
+		tracesSpecific string
+		want           string
+	}{
+		{name: "unset defaults to the specification default", want: protocolHTTP},
+		{name: "generic grpc", generic: "grpc", want: protocolGRPC},
+		{name: "generic http/protobuf", generic: "http/protobuf", want: protocolHTTP},
+		{name: "traces-specific wins over generic", generic: "http/protobuf", tracesSpecific: "grpc", want: protocolGRPC},
+		{name: "case and padding are tolerated", generic: "  GRPC ", want: protocolGRPC},
+		{name: "unsupported value falls back", generic: "http/json", want: protocolHTTP},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", tt.generic)
+			t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", tt.tracesSpecific)
+			assert.Equal(t, tt.want, resolveProtocol())
+		})
+	}
 }

@@ -27,6 +27,12 @@ import (
 const (
 	signalHandlerName = "ShutdownOpenTelemetry"
 	shutdownTimeout   = 5 * time.Second
+
+	// protocolHTTP and protocolGRPC are the OTLP transport protocols supported
+	// by the Go SDK. The OpenTelemetry specification defines http/protobuf as
+	// the default, so an unset OTEL_EXPORTER_OTLP_PROTOCOL selects it.
+	protocolHTTP = "http/protobuf"
+	protocolGRPC = "grpc"
 )
 
 // InitOpenTelemetry configures the global TracerProvider and propagators
@@ -40,9 +46,14 @@ func InitOpenTelemetry() func(context.Context) error {
 		return noopShutdown
 	}
 
-	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	// The signal-specific variable takes precedence over the generic one, per
+	// the OpenTelemetry specification.
+	endpoint := firstNonEmpty(
+		os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"),
+		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+	)
 	if endpoint == "" {
-		log.Info().Msg("OTEL_EXPORTER_OTLP_ENDPOINT not set; tracing is a noop")
+		log.Info().Msg("neither OTEL_EXPORTER_OTLP_TRACES_ENDPOINT nor OTEL_EXPORTER_OTLP_ENDPOINT is set; tracing is a noop")
 		return noopShutdown
 	}
 
@@ -81,18 +92,39 @@ func InitOpenTelemetry() func(context.Context) error {
 }
 
 func newExporter(ctx context.Context) (*otlptrace.Exporter, error) {
-	protocol := strings.ToLower(os.Getenv("OTEL_EXPORTER_OTLP_PROTOCOL"))
-	if protocol == "" {
-		protocol = "grpc"
+	if resolveProtocol() == protocolGRPC {
+		return otlptracegrpc.New(ctx)
 	}
+	return otlptracehttp.New(ctx)
+}
+
+// resolveProtocol reports the OTLP transport to use. The signal-specific
+// variable wins over the generic one, an unset value yields the
+// specification default, and an unsupported value falls back to it with a
+// warning rather than failing startup.
+func resolveProtocol() string {
+	protocol := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		os.Getenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"),
+		os.Getenv("OTEL_EXPORTER_OTLP_PROTOCOL"),
+	)))
 	switch protocol {
-	case "http/protobuf":
-		return otlptracehttp.New(ctx)
-	case "grpc":
-		return otlptracegrpc.New(ctx)
+	case "":
+		return protocolHTTP
+	case protocolHTTP, protocolGRPC:
+		return protocol
 	default:
-		return otlptracegrpc.New(ctx)
+		log.Warn().Str("protocol", protocol).Msgf("unsupported OTLP protocol; falling back to %s", protocolHTTP)
+		return protocolHTTP
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func shutdownFunc(tp *sdktrace.TracerProvider) func(context.Context) error {
