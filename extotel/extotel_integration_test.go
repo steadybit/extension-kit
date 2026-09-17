@@ -89,6 +89,17 @@ func (c *otlpCollector) received() []*tracepb.Span {
 	return append([]*tracepb.Span(nil), c.spans...)
 }
 
+// restoreServeMuxAndTracing puts the process-global mux and the exthttp tracing
+// flag back, so one test's setup cannot decide another's outcome.
+func restoreServeMuxAndTracing(t *testing.T) {
+	t.Helper()
+	oldMux := http.DefaultServeMux
+	t.Cleanup(func() {
+		http.DefaultServeMux = oldMux
+		exthttp.SetTracingEnabled(false)
+	})
+}
+
 // An HTTP request served through RegisterHttpHandler must end up as a span at
 // the configured OTLP endpoint. This covers the whole path the extensions rely
 // on: env-var configuration, exporter construction, the otelhttp middleware and
@@ -97,6 +108,8 @@ func TestInitOpenTelemetry_ExportsHandlerSpansOverOTLP(t *testing.T) {
 	collector := startOtlpCollector(t)
 
 	t.Setenv("OTEL_SDK_DISABLED", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", collector.server.URL)
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", protocolHTTP)
 	t.Setenv("OTEL_SERVICE_NAME", "extension-kit-integration-test")
@@ -105,6 +118,8 @@ func TestInitOpenTelemetry_ExportsHandlerSpansOverOTLP(t *testing.T) {
 	shutdown := InitOpenTelemetry()
 	require.NotNil(t, shutdown)
 
+	// Deliberately not setting the exthttp tracing flag here: InitOpenTelemetry
+	// is what must turn it on, and setting it by hand would hide that.
 	http.DefaultServeMux = http.NewServeMux()
 	exthttp.RegisterHttpHandler("/exported", func(w http.ResponseWriter, r *http.Request, body []byte) {
 		w.WriteHeader(http.StatusNoContent)
@@ -133,6 +148,8 @@ func TestInitOpenTelemetry_ExportsNothingWhenUnconfigured(t *testing.T) {
 	collector := startOtlpCollector(t)
 
 	t.Setenv("OTEL_SDK_DISABLED", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
 	restoreGlobals(t)
@@ -140,6 +157,8 @@ func TestInitOpenTelemetry_ExportsNothingWhenUnconfigured(t *testing.T) {
 	shutdown := InitOpenTelemetry()
 	require.NotNil(t, shutdown)
 
+	// Deliberately not setting the exthttp tracing flag here: InitOpenTelemetry
+	// is what must turn it on, and setting it by hand would hide that.
 	http.DefaultServeMux = http.NewServeMux()
 	exthttp.RegisterHttpHandler("/unexported", func(w http.ResponseWriter, r *http.Request, body []byte) {
 		w.WriteHeader(http.StatusNoContent)

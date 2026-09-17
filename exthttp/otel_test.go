@@ -18,6 +18,19 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
+// restoreDefaultServeMux puts the process-global mux back, the way the rest of
+// this package's tests do; without it a later test sees an empty mux depending
+// on ordering.
+func restoreDefaultServeMux(t *testing.T) {
+	t.Helper()
+	old := http.DefaultServeMux
+	prevTracing := tracingEnabled.Load()
+	t.Cleanup(func() {
+		http.DefaultServeMux = old
+		tracingEnabled.Store(prevTracing)
+	})
+}
+
 func TestRegisterHttpHandler_EmitsSpanPerRequest(t *testing.T) {
 	recorder := tracetest.NewSpanRecorder()
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
@@ -25,6 +38,8 @@ func TestRegisterHttpHandler_EmitsSpanPerRequest(t *testing.T) {
 	otel.SetTracerProvider(tp)
 	defer otel.SetTracerProvider(prevProvider)
 
+	restoreDefaultServeMux(t)
+	SetTracingEnabled(true)
 	http.DefaultServeMux = http.NewServeMux()
 	RegisterHttpHandler("/traced", func(w http.ResponseWriter, r *http.Request, body []byte) {
 		w.WriteHeader(http.StatusNoContent)
@@ -47,6 +62,8 @@ func TestRegisterHttpHandler_NoSpanWhenOtelNotConfigured(t *testing.T) {
 	defer otel.SetTracerProvider(prevProvider)
 
 	var capturedSpanCtx trace.SpanContext
+	restoreDefaultServeMux(t)
+	SetTracingEnabled(true)
 	http.DefaultServeMux = http.NewServeMux()
 	RegisterHttpHandler("/untraced", func(w http.ResponseWriter, r *http.Request, body []byte) {
 		capturedSpanCtx = trace.SpanFromContext(r.Context()).SpanContext()

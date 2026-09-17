@@ -43,6 +43,8 @@ func TestInitOpenTelemetry_SdkDisabled_InstallsNoopProvider(t *testing.T) {
 
 func TestInitOpenTelemetry_MissingEndpoint_InstallsNoopProvider(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
 	restoreGlobals(t)
@@ -56,6 +58,8 @@ func TestInitOpenTelemetry_MissingEndpoint_InstallsNoopProvider(t *testing.T) {
 
 func TestInitOpenTelemetry_ValidEndpoint_InstallsSdkProvider(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
 	restoreGlobals(t)
@@ -74,7 +78,11 @@ func TestInitOpenTelemetry_ValidEndpoint_InstallsSdkProvider(t *testing.T) {
 
 func TestInitOpenTelemetry_ShutdownIdempotent(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "")
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "")
+	// 4318 is the OTLP/HTTP port, matching the default protocol; pairing 4317
+	// with http/protobuf is the misconfiguration this package warns about.
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
 	restoreGlobals(t)
 
 	shutdown := InitOpenTelemetry()
@@ -91,6 +99,8 @@ func TestInitOpenTelemetry_TracesEndpointAloneInstallsSdkProvider(t *testing.T) 
 	// The signal-specific variable is enough on its own; an operator that only
 	// sets OTEL_EXPORTER_OTLP_TRACES_ENDPOINT must still get a real provider.
 	t.Setenv("OTEL_SDK_DISABLED", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4318")
 	restoreGlobals(t)

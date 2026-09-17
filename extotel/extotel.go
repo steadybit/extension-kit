@@ -9,12 +9,16 @@ package extotel
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/steadybit/extension-kit/exthttp"
 	"github.com/steadybit/extension-kit/extsignals"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -61,6 +65,15 @@ func InitOpenTelemetry() func(context.Context) error {
 		log.Warn().Msg("OTEL_SERVICE_NAME not set; spans will be tagged with the SDK default 'unknown_service:<binary>'")
 	}
 
+	// OTel's global default logger writes plain text to stderr, which corrupts
+	// JSON log output, and export failures otherwise go unnoticed entirely: the
+	// extension logs "tracing initialized" and drops every span. Point a
+	// misconfigured endpoint at the wrong port and this is the only signal.
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		log.Warn().Err(err).Msg("OpenTelemetry error")
+	}))
+	otel.SetLogger(logr.New(zerologSink{}))
+
 	exporter, err := newExporter(context.Background())
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to create OTLP trace exporter; tracing is a noop")
@@ -86,6 +99,8 @@ func InitOpenTelemetry() func(context.Context) error {
 		Order: extsignals.OrderStopExtensionHttp + 1,
 		Name:  signalHandlerName,
 	})
+
+	exthttp.SetTracingEnabled(true)
 
 	log.Info().Str("endpoint", endpoint).Msg("OpenTelemetry tracing initialized")
 	return shutdown
@@ -139,3 +154,47 @@ func shutdownFunc(tp *sdktrace.TracerProvider) func(context.Context) error {
 }
 
 func noopShutdown(context.Context) error { return nil }
+
+// zerologSink adapts OTel's logr-based internal logging onto the extension's
+// zerolog output, so SDK diagnostics keep the configured log format.
+type zerologSink struct {
+	name   string
+	values []any
+}
+
+func (s zerologSink) Init(logr.RuntimeInfo) {}
+
+// OTel logs at V(1) for debug-level detail and V(8)/V(4) for verbose traffic;
+// only the first level is worth carrying.
+func (s zerologSink) Enabled(level int) bool { return level <= 1 }
+
+func (s zerologSink) Info(_ int, msg string, kv ...any) {
+	s.event(log.Debug(), kv).Msg(msg)
+}
+
+func (s zerologSink) Error(err error, msg string, kv ...any) {
+	s.event(log.Warn().Err(err), kv).Msg(msg)
+}
+
+func (s zerologSink) event(e *zerolog.Event, kv []any) *zerolog.Event {
+	if s.name != "" {
+		e = e.Str("otel.component", s.name)
+	}
+	for _, pairs := range [][]any{s.values, kv} {
+		for i := 0; i+1 < len(pairs); i += 2 {
+			e = e.Interface(fmt.Sprint(pairs[i]), pairs[i+1])
+		}
+	}
+	return e
+}
+
+func (s zerologSink) WithValues(kv ...any) logr.LogSink {
+	return zerologSink{name: s.name, values: append(append([]any{}, s.values...), kv...)}
+}
+
+func (s zerologSink) WithName(name string) logr.LogSink {
+	if s.name != "" {
+		name = s.name + "/" + name
+	}
+	return zerologSink{name: name, values: s.values}
+}

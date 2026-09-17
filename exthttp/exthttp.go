@@ -14,6 +14,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/klauspost/compress/gzhttp"
@@ -23,6 +24,20 @@ import (
 	"github.com/steadybit/extension-kit"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
+
+// tracingEnabled gates the OpenTelemetry server instrumentation. It is off
+// until something configures the SDK, so extensions that do not use tracing pay
+// nothing for it.
+var tracingEnabled atomic.Bool
+
+// SetTracingEnabled turns OpenTelemetry instrumentation on for handlers
+// registered through RegisterHttpHandler. extotel.InitOpenTelemetry calls this
+// once it has installed a real TracerProvider; an extension that configures the
+// SDK itself, without extotel, has to call it too or its handlers will not be
+// traced.
+func SetTracingEnabled(enabled bool) {
+	tracingEnabled.Store(enabled)
+}
 
 type Handler func(w http.ResponseWriter, r *http.Request, body []byte)
 
@@ -38,6 +53,13 @@ func RegisterHttpHandlerWithLogLevel(path string, handler Handler, defaultLevel 
 		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
 			return r.Method + " " + path
 		}),
+		// Without a filter the middleware is not free when tracing is off: it
+		// builds the semconv attribute slice, wraps the body and the
+		// ResponseWriter and starts a span before it ever consults the tracer.
+		// extension-kit wraps every handler of every extension, most of which
+		// never enable OpenTelemetry, so the filter runs first and short-circuits
+		// straight to the handler.
+		otelhttp.WithFilter(func(*http.Request) bool { return tracingEnabled.Load() }),
 	))
 }
 
