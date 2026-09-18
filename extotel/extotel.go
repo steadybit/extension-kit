@@ -21,6 +21,8 @@ import (
 	"github.com/steadybit/extension-kit/exthttp"
 	"github.com/steadybit/extension-kit/extsignals"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -84,7 +86,10 @@ func InitOpenTelemetry() func(context.Context) error {
 		return noopShutdown
 	}
 
-	tp := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exporter))
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithSpanProcessor(baggageAttributeProcessor{keys: correlationBaggageKeys}),
+	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
@@ -158,6 +163,39 @@ func shutdownFunc(tp *sdktrace.TracerProvider) func(context.Context) error {
 }
 
 func noopShutdown(context.Context) error { return nil }
+
+// correlationBaggageKeys are the baggage entries copied onto every span this
+// extension records. The Steadybit platform puts the experiment execution id
+// into baggage and the agent propagates it on every call it makes, so an
+// extension's spans can be found by the run that caused them — without it they
+// are only reachable by opening the agent's trace, not by querying for the run.
+var correlationBaggageKeys = []string{"experiment.execution.id"}
+
+// baggageAttributeProcessor copies selected baggage entries onto spans as they
+// start. Baggage rides in the context and is not otherwise recorded, so
+// attributes are what make a span queryable in a tracing backend.
+//
+// Only the listed keys are copied, deliberately: baggage is arbitrary
+// caller-supplied key/value data, and copying all of it would put whatever an
+// upstream service happened to set into this extension's telemetry.
+type baggageAttributeProcessor struct {
+	keys []string
+}
+
+func (p baggageAttributeProcessor) OnStart(ctx context.Context, span sdktrace.ReadWriteSpan) {
+	b := baggage.FromContext(ctx)
+	for _, key := range p.keys {
+		if value := b.Member(key).Value(); value != "" {
+			span.SetAttributes(attribute.String(key, value))
+		}
+	}
+}
+
+func (p baggageAttributeProcessor) OnEnd(sdktrace.ReadOnlySpan) {}
+
+func (p baggageAttributeProcessor) Shutdown(context.Context) error { return nil }
+
+func (p baggageAttributeProcessor) ForceFlush(context.Context) error { return nil }
 
 // zerologSink adapts OTel's logr-based internal logging onto the extension's
 // zerolog output, so SDK diagnostics keep the configured log format.
