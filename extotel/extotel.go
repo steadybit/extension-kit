@@ -33,8 +33,12 @@ const (
 	shutdownTimeout   = 5 * time.Second
 
 	// protocolHTTP and protocolGRPC are the OTLP transport protocols supported
-	// by the Go SDK. The OpenTelemetry specification defines http/protobuf as
-	// the default, so an unset OTEL_EXPORTER_OTLP_PROTOCOL selects it.
+	// by the Go SDK. An unset OTEL_EXPORTER_OTLP_PROTOCOL selects gRPC, which
+	// deliberately departs from the specification default of http/protobuf: the
+	// Steadybit agent's Java SDK defaults to gRPC, and extensions are deployed
+	// and configured alongside it against an OTLP/gRPC endpoint on port 4317.
+	// Defaulting to http/protobuf would make an endpoint copied from the agent
+	// export nothing at all.
 	protocolHTTP = "http/protobuf"
 	protocolGRPC = "grpc"
 )
@@ -114,9 +118,9 @@ func newExporter(ctx context.Context) (*otlptrace.Exporter, error) {
 }
 
 // resolveProtocol reports the OTLP transport to use. The signal-specific
-// variable wins over the generic one, an unset value yields the
-// specification default, and an unsupported value falls back to it with a
-// warning rather than failing startup.
+// variable wins over the generic one, an unset value yields gRPC (see the
+// constants for why that, not the specification default), and an unsupported
+// value falls back to it with a warning rather than failing startup.
 func resolveProtocol() string {
 	protocol := strings.ToLower(strings.TrimSpace(firstNonEmpty(
 		os.Getenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"),
@@ -124,12 +128,12 @@ func resolveProtocol() string {
 	)))
 	switch protocol {
 	case "":
-		return protocolHTTP
+		return protocolGRPC
 	case protocolHTTP, protocolGRPC:
 		return protocol
 	default:
-		log.Warn().Str("protocol", protocol).Msgf("unsupported OTLP protocol; falling back to %s", protocolHTTP)
-		return protocolHTTP
+		log.Warn().Str("protocol", protocol).Msgf("unsupported OTLP protocol; falling back to %s", protocolGRPC)
+		return protocolGRPC
 	}
 }
 

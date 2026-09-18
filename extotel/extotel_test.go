@@ -124,12 +124,12 @@ func TestResolveProtocol(t *testing.T) {
 		tracesSpecific string
 		want           string
 	}{
-		{name: "unset defaults to the specification default", want: protocolHTTP},
+		{name: "unset defaults to gRPC, matching the agent and our deployments", want: protocolGRPC},
 		{name: "generic grpc", generic: "grpc", want: protocolGRPC},
 		{name: "generic http/protobuf", generic: "http/protobuf", want: protocolHTTP},
 		{name: "traces-specific wins over generic", generic: "http/protobuf", tracesSpecific: "grpc", want: protocolGRPC},
 		{name: "case and padding are tolerated", generic: "  GRPC ", want: protocolGRPC},
-		{name: "unsupported value falls back", generic: "http/json", want: protocolHTTP},
+		{name: "unsupported value falls back", generic: "http/json", want: protocolGRPC},
 	}
 
 	for _, tt := range tests {

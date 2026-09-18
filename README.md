@@ -76,29 +76,30 @@ one where both exist.
 |--------------------------------------|--------------------------------------------------------------------------------------------------------------------------|------------|-----------------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT`        | OTLP endpoint to export spans to. **Tracing stays off while this and the traces-specific variant are both unset.**        | `extraEnv` |                 |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Traces-only endpoint. Takes precedence over the generic one.                                                              | `extraEnv` |                 |
-| `OTEL_EXPORTER_OTLP_PROTOCOL`        | `http/protobuf` or `grpc`. An unsupported value warns and falls back to the default rather than failing startup.          | `extraEnv` | `http/protobuf` |
-| `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` | Traces-only protocol. Takes precedence over the generic one.                                                              | `extraEnv` | `http/protobuf` |
+| `OTEL_EXPORTER_OTLP_PROTOCOL`        | `grpc` or `http/protobuf`. An unsupported value warns and falls back to the default rather than failing startup.          | `extraEnv` | `grpc`          |
+| `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` | Traces-only protocol. Takes precedence over the generic one.                                                              | `extraEnv` | `grpc`          |
 | `OTEL_SERVICE_NAME`                  | Service name on the exported spans. A warning is logged when unset, since spans would be tagged `unknown_service:<binary>`. | `extraEnv` |                 |
 | `OTEL_SDK_DISABLED`                  | `true` forces tracing off even when an endpoint is configured.                                                            | `extraEnv` | false           |
 
 Sampling and batching are left to the standard SDK variables — `OTEL_TRACES_SAMPLER`,
 `OTEL_TRACES_SAMPLER_ARG`, `OTEL_BSP_*` — rather than being tuned per extension.
 
-> **Match the protocol to the port.** The default is `http/protobuf`, per the
-> OpenTelemetry specification, which means port **4318**. Pointing
-> `OTEL_EXPORTER_OTLP_ENDPOINT` at **4317** — the gRPC port — without also setting
-> `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` makes the exporter POST to a port that will not
-> answer it, and no spans arrive. Export failures are logged through the extension's
-> normal logger, so check the extension log if a configured endpoint stays silent.
+> **Match the protocol to the port.** The default is `grpc`, which means port
+> **4317**. This departs from the OpenTelemetry specification, whose default is
+> `http/protobuf`: the Steadybit agent's Java SDK defaults to gRPC and extensions are
+> configured alongside it, so an endpoint copied from the agent works as written.
+> If you point `OTEL_EXPORTER_OTLP_ENDPOINT` at an OTLP/HTTP collector on **4318**,
+> set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` as well, or the exporter will talk
+> gRPC to a port that will not answer and no spans will arrive. Export failures are
+> logged through the extension's normal logger, so check the extension log if a
+> configured endpoint stays silent.
 
-Example, exporting to a collector over gRPC:
+Example, exporting to a collector over gRPC (the default, so no protocol needed):
 
 ```yaml
 extraEnv:
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: "http://otel-collector.observability:4317"
-  - name: OTEL_EXPORTER_OTLP_PROTOCOL
-    value: "grpc"
   - name: OTEL_SERVICE_NAME
     value: "steadybit-extension-http"
 ```
