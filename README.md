@@ -81,6 +81,24 @@ one where both exist.
 | `OTEL_SERVICE_NAME`                  | Service name on the exported spans. A warning is logged when unset, since spans would be tagged `unknown_service:<binary>`. | `extraEnv` |                 |
 | `OTEL_SDK_DISABLED`                  | `true` forces tracing off even when an endpoint is configured.                                                            | `extraEnv` | false           |
 
+### Correlating spans with an experiment run
+
+The Steadybit platform puts the experiment execution id into OpenTelemetry
+baggage, and the agent propagates it on every call it makes to an extension.
+`extotel` records it on the extension's spans as an `experiment.execution.id`
+attribute, so a run's spans can be found by querying for it rather than only by
+opening the agent's trace:
+
+| backend | query |
+|---------|-------|
+| Tempo / Grafana | `{ span.experiment.execution.id = "<id>" }` |
+| Jaeger | tag `experiment.execution.id=<id>` |
+| Datadog | `@experiment.execution.id:<id>` |
+
+Only that key is copied. Baggage is arbitrary caller-supplied data, so copying
+all of it would put whatever an upstream service happened to set into the
+extension's telemetry.
+
 Sampling and batching are left to the standard SDK variables — `OTEL_TRACES_SAMPLER`,
 `OTEL_TRACES_SAMPLER_ARG`, `OTEL_BSP_*` — rather than being tuned per extension.
 

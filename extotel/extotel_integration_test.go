@@ -175,3 +175,90 @@ func TestInitOpenTelemetry_ExportsNothingWhenUnconfigured(t *testing.T) {
 
 	assert.Empty(t, collector.received(), "no spans may be exported when no endpoint is configured")
 }
+
+// The platform puts the experiment execution id into baggage and the agent
+// propagates it on every call. Recording it as a span attribute is what lets an
+// operator query their tracing backend for "everything this run did", rather
+// than only reaching the extension's spans by opening the agent's trace.
+//
+// Driven through a real request with a W3C baggage header, because that is how
+// the agent delivers it.
+func TestInitOpenTelemetry_RecordsExperimentExecutionIdFromBaggage(t *testing.T) {
+	collector := startOtlpCollector(t)
+
+	t.Setenv("OTEL_SDK_DISABLED", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", collector.server.URL)
+	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", protocolHTTP)
+	t.Setenv("OTEL_SERVICE_NAME", "extension-kit-integration-test")
+	restoreGlobals(t)
+	restoreServeMuxAndTracing(t)
+
+	shutdown := InitOpenTelemetry()
+	require.NotNil(t, shutdown)
+
+	http.DefaultServeMux = http.NewServeMux()
+	exthttp.RegisterHttpHandler("/correlated", func(w http.ResponseWriter, r *http.Request, body []byte) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/correlated", nil)
+	req.Header.Set("baggage", "experiment.execution.id=4711")
+	rr := httptest.NewRecorder()
+	http.DefaultServeMux.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusNoContent, rr.Code)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	require.NoError(t, shutdown(ctx))
+
+	spans := collector.received()
+	require.Len(t, spans, 1)
+
+	var got string
+	for _, attr := range spans[0].GetAttributes() {
+		if attr.GetKey() == "experiment.execution.id" {
+			got = attr.GetValue().GetStringValue()
+		}
+	}
+	assert.Equal(t, "4711", got, "the span should carry the experiment execution id from baggage")
+}
+
+// Baggage is arbitrary caller-supplied data, so only the correlation keys we
+// ask for are recorded.
+func TestInitOpenTelemetry_DoesNotRecordUnlistedBaggage(t *testing.T) {
+	collector := startOtlpCollector(t)
+
+	t.Setenv("OTEL_SDK_DISABLED", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", collector.server.URL)
+	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", protocolHTTP)
+	restoreGlobals(t)
+	restoreServeMuxAndTracing(t)
+
+	shutdown := InitOpenTelemetry()
+	require.NotNil(t, shutdown)
+
+	http.DefaultServeMux = http.NewServeMux()
+	exthttp.RegisterHttpHandler("/unlisted", func(w http.ResponseWriter, r *http.Request, body []byte) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/unlisted", nil)
+	req.Header.Set("baggage", "experiment.execution.id=4711,customer.secret=hunter2")
+	rr := httptest.NewRecorder()
+	http.DefaultServeMux.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusNoContent, rr.Code)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	require.NoError(t, shutdown(ctx))
+
+	spans := collector.received()
+	require.Len(t, spans, 1)
+	for _, attr := range spans[0].GetAttributes() {
+		assert.NotEqual(t, "customer.secret", attr.GetKey(), "baggage outside the correlation keys must not be recorded")
+	}
+}
