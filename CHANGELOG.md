@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.1
+
+- **Behaviour change** — `extotel` now defaults the OTLP protocol to `grpc` instead of the specification's `http/protobuf`. Every Steadybit deployment points at an OTLP/gRPC endpoint on port 4317 and the agent's own SDK defaults to gRPC, so an extension configured the way the agent is configured used to POST to a gRPC port and export nothing, silently. An endpoint copied from the agent now works as written; `http/protobuf` (port 4318) remains available by setting `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` explicitly.
+- feat(extotel): extension spans record `experiment.execution.id`. The platform puts it into OpenTelemetry baggage and the agent propagates it on every call, but extensions never recorded it — so their spans could only be reached by opening the agent's trace, never by querying a tracing backend for everything a given run did. They are now queryable on their own with `{ span.experiment.execution.id = "<id>" }`. Only that one key is copied; baggage is arbitrary caller-supplied data, and copying all of it would put whatever an upstream service happened to set into the extension's telemetry.
+- docs: the README documents OpenTelemetry tracing — what you get, how an extension author enables it, and the full `OTEL_*` table, including which port goes with which protocol and what an extension that configures the SDK itself has to do.
+
 ## 1.12.0
 
 - feat: new `extotel` package initializes the OpenTelemetry SDK from the standard `OTEL_*` environment variables — call `extotel.InitOpenTelemetry()` once from `main()`; it returns an idempotent shutdown/flush function and registers an `extsignals` handler that flushes on SIGTERM/SIGINT. `exthttp.RegisterHttpHandler` now wraps every handler with `otelhttp`, so each incoming request produces a `METHOD /path` span. Tracing stays a noop — and free, a filter short-circuits ahead of the middleware's attribute and span work — until an OTLP endpoint is configured, so existing extensions are unaffected: set `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` (or the generic `OTEL_EXPORTER_OTLP_ENDPOINT`) plus `OTEL_SERVICE_NAME` to enable it. The transport defaults to `http/protobuf` per the OpenTelemetry specification, so exporting over gRPC (endpoint port 4317) requires `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`. SDK errors and logs go through zerolog rather than plain text on stderr.
