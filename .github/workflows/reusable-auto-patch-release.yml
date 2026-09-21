@@ -33,15 +33,16 @@ on:
         description: Which component of the version to bump — major, minor, or patch (default)
       changelog_ignore_regex:
         type: string
-        default: '^chore(\(deps\))?: update helm chart version$|^docs:|^test:|^build: |^chore: update (\.)?trivy|^chore\(trivy\):'
+        default: '^chore(\(deps\))?: update helm chart version$|^docs(\(.+\))?:|^test(\(.+\))?:|^build: |^chore: update (\.)?trivy|^chore\(trivy\):'
         description: |
           POSIX-extended regex of commit subjects to ignore. Matched commits
           are treated as non-events — they neither trigger a release nor
           appear in CHANGELOG.md. If every commit in the range matches, the
           workflow silently exits with no-commits. Default skips the
           auto-emitted helm chart bumps (legacy and current message), docs
-          commits, and trivy-ignore-list updates. Commits whose message
-          contains [skip ci] are always ignored, regardless of this regex.
+          and test commits (scoped ones such as test(e2e): included), and
+          trivy-ignore-list updates. Commits whose message contains
+          [skip ci] are always ignored, regardless of this regex.
       slack_channel:
         type: string
         default: C0BA547TUKC
