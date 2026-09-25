@@ -69,10 +69,10 @@ func MissingCapabilities(required ...string) []string {
 	return missing
 }
 
-// LogMissingCapabilities logs a warning for the expected capabilities the extension lacks. Actions
-// needing them fail, the others work.
+// LogMissingCapabilities logs a warning for the expected capabilities the extension lacks: the
+// actions needing them are unavailable, or run degraded for an optional one.
 func LogMissingCapabilities(expected ...string) {
 	if missing := MissingCapabilities(expected...); len(missing) > 0 {
-		log.Warn().Strs("missing", missing).Msg("The extension runs without some capabilities; the actions needing them will fail")
+		log.Warn().Strs("missing", missing).Msg("The extension runs without some capabilities; the actions needing them are unavailable or degraded")
 	}
 }
