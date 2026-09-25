@@ -25,8 +25,9 @@ import (
 // this function makes them effective. What is missing can then be reported per action, see
 // MissingCapabilities.
 //
-// Capabilities are per thread, so the change is applied to every thread; this needs a binary built
-// without cgo. It returns an error when the effective set could not be raised on all threads.
+// Capabilities are per thread, so the change is applied to every thread at once; this needs a
+// binary built without cgo. Raising them on a single thread would not help: the Go scheduler moves
+// goroutines between threads. So a binary built with cgo gets an error and no capability is raised.
 func RaiseCapabilities() error {
 	hdr := unix.CapUserHeader{Version: unix.LINUX_CAPABILITY_VERSION_3}
 	data := [2]unix.CapUserData{}
@@ -44,11 +45,7 @@ func RaiseCapabilities() error {
 		return nil
 	}
 	if errors.Is(errno, syscall.ENOTSUP) {
-		// Built with cgo: at least raise them on this thread.
-		if err := unix.Capset(&hdr, &data[0]); err != nil {
-			return fmt.Errorf("raising the capabilities: %w", err)
-		}
-		return errors.New("raising the capabilities on all threads needs a binary built without cgo; raised on the main thread only")
+		return errors.New("raising the capabilities on all threads needs a binary built without cgo (CGO_ENABLED=0); none were raised")
 	}
 	return fmt.Errorf("raising the capabilities: %w", errno)
 }
