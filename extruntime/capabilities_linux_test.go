@@ -78,6 +78,25 @@ func TestMissingCapabilities_OldKernelsCoverBPFWithSysAdmin(t *testing.T) {
 	assert.Equal(t, []string{"BPF"}, missingCapabilities(withoutSysAdmin, []string{"BPF"}))
 }
 
+func TestMissingHeldCapabilities_OnlyCountsTheEffectiveSet(t *testing.T) {
+	p := process(fileCaps, containerCaps, 41, false)
+	p.effective = p.permitted
+
+	// Root helpers could get NET_RAW, but the extension itself does not hold it.
+	assert.Equal(t, []string{"NET_RAW"}, missingHeldCapabilities(p, []string{"SYS_ADMIN", "NET_RAW"}))
+
+	// What RaiseCapabilities could not raise is missing too.
+	p.effective = 0
+	assert.Equal(t, []string{"SYS_ADMIN"}, missingHeldCapabilities(p, []string{"SYS_ADMIN"}))
+}
+
+func TestMissingHeldCapabilities_OldKernelsCoverBPFWithSysAdmin(t *testing.T) {
+	p := process(fileCaps, containerCaps, 38, false)
+	p.effective = p.permitted
+
+	assert.Empty(t, missingHeldCapabilities(p, []string{"BPF"}))
+}
+
 func TestMissingCapabilities_UnknownNames(t *testing.T) {
 	p := process(fileCaps, containerCaps, 41, false)
 
