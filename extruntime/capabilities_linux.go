@@ -8,6 +8,7 @@ package extruntime
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -51,10 +52,59 @@ func RaiseCapabilities() error {
 }
 
 // MissingCapabilities returns the capabilities among required that the extension cannot use,
-// named like the input, or all of them when they cannot be read. A capability is usable when it is
-// in the bounding set: the container's securityContext decides it, and the root helpers the
-// extension runs (runc, nsenter, tc, …) inherit it.
+// named like the input. A capability is usable when it is in the bounding set, which the
+// container's securityContext decides, and either:
+//   - the extension holds it (permitted set, from its file capabilities), or
+//   - the extension can run root helpers (runc, nsenter, tc, …) that get it: it holds SETUID and
+//     SETGID, and no_new_privs is off. With allowPrivilegeEscalation: false, no_new_privs is on: the
+//     kernel caps what an exec gains at what the parent held, so the root helpers get no more than
+//     the extension holds itself.
+//
+// Capabilities newer than the kernel (BPF and PERFMON before 5.8, CHECKPOINT_RESTORE before 5.9)
+// were part of SYS_ADMIN there, so SYS_ADMIN stands in for them.
 func MissingCapabilities(required ...string) []string {
+	return missingCapabilities(currentProcess(), required)
+}
+
+// processCapabilities is what decides whether a capability is usable, read from the process.
+type processCapabilities struct {
+	permitted uint64
+	// inBounding reports whether the capability is in the bounding set; known is false when the
+	// kernel does not know the capability.
+	inBounding func(n int) (in bool, known bool)
+	noNewPrivs bool
+}
+
+func currentProcess() processCapabilities {
+	p := processCapabilities{
+		inBounding: func(n int) (bool, bool) {
+			in, err := unix.PrctlRetInt(unix.PR_CAPBSET_READ, uintptr(n), 0, 0, 0)
+			if errors.Is(err, unix.EINVAL) {
+				return false, false
+			}
+			return err == nil && in == 1, true
+		},
+	}
+	hdr := unix.CapUserHeader{Version: unix.LINUX_CAPABILITY_VERSION_3}
+	data := [2]unix.CapUserData{}
+	if err := unix.Capget(&hdr, &data[0]); err == nil {
+		p.permitted = uint64(data[0].Permitted) | uint64(data[1].Permitted)<<32
+	}
+	if nnp, err := unix.PrctlRetInt(unix.PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0); err != nil || nnp == 1 {
+		p.noNewPrivs = true
+	}
+	return p
+}
+
+// legacyCapabilities are the capabilities split out of SYS_ADMIN by newer kernels.
+var legacyCapabilities = map[string]string{"BPF": "SYS_ADMIN", "PERFMON": "SYS_ADMIN", "CHECKPOINT_RESTORE": "SYS_ADMIN"}
+
+func missingCapabilities(p processCapabilities, required []string) []string {
+	holds := func(n int) bool { return p.permitted&(1<<uint(n)) != 0 }
+	setuid, _ := capabilityNumber("SETUID")
+	setgid, _ := capabilityNumber("SETGID")
+	canRunRootHelpers := !p.noNewPrivs && holds(setuid) && holds(setgid)
+
 	var missing []string
 	for _, name := range required {
 		n, ok := capabilityNumber(name)
@@ -62,7 +112,17 @@ func MissingCapabilities(required ...string) []string {
 			missing = append(missing, name)
 			continue
 		}
-		if in, err := unix.PrctlRetInt(unix.PR_CAPBSET_READ, uintptr(n), 0, 0, 0); err != nil || in != 1 {
+		in, known := p.inBounding(n)
+		if !known {
+			legacy, ok := legacyCapabilities[strings.TrimPrefix(strings.ToUpper(name), "CAP_")]
+			if !ok {
+				missing = append(missing, name)
+				continue
+			}
+			n, _ = capabilityNumber(legacy)
+			in, known = p.inBounding(n)
+		}
+		if !known || !in || !(holds(n) || canRunRootHelpers) {
 			missing = append(missing, name)
 		}
 	}
