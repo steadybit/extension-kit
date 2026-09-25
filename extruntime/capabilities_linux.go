@@ -66,9 +66,19 @@ func MissingCapabilities(required ...string) []string {
 	return missingCapabilities(currentProcess(), required)
 }
 
+// MissingHeldCapabilities returns the capabilities among required that the extension does not hold
+// in its effective set, named like the input. Use it for what the extension does itself, like a
+// syscall or writing a file, which the root helpers cannot do for it. It also reports what
+// RaiseCapabilities could not raise. Newer capabilities fall back to SYS_ADMIN as in
+// MissingCapabilities.
+func MissingHeldCapabilities(required ...string) []string {
+	return missingHeldCapabilities(currentProcess(), required)
+}
+
 // processCapabilities is what decides whether a capability is usable, read from the process.
 type processCapabilities struct {
 	permitted uint64
+	effective uint64
 	// inBounding reports whether the capability is in the bounding set; known is false when the
 	// kernel does not know the capability.
 	inBounding func(n int) (in bool, known bool)
@@ -89,6 +99,7 @@ func currentProcess() processCapabilities {
 	data := [2]unix.CapUserData{}
 	if err := unix.Capget(&hdr, &data[0]); err == nil {
 		p.permitted = uint64(data[0].Permitted) | uint64(data[1].Permitted)<<32
+		p.effective = uint64(data[0].Effective) | uint64(data[1].Effective)<<32
 	}
 	if nnp, err := unix.PrctlRetInt(unix.PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0); err != nil || nnp == 1 {
 		p.noNewPrivs = true
@@ -98,6 +109,33 @@ func currentProcess() processCapabilities {
 
 // legacyCapabilities are the capabilities split out of SYS_ADMIN by newer kernels.
 var legacyCapabilities = map[string]string{"BPF": "SYS_ADMIN", "PERFMON": "SYS_ADMIN", "CHECKPOINT_RESTORE": "SYS_ADMIN"}
+
+// resolve returns the number of a capability as the kernel knows it: capabilities newer than the
+// kernel resolve to the one they were split from. ok is false for unknown names.
+func resolve(p processCapabilities, name string) (n int, ok bool) {
+	n, ok = capabilityNumber(name)
+	if !ok {
+		return 0, false
+	}
+	if _, known := p.inBounding(n); known {
+		return n, true
+	}
+	legacy, ok := legacyCapabilities[strings.TrimPrefix(strings.ToUpper(name), "CAP_")]
+	if !ok {
+		return 0, false
+	}
+	return capabilityNumber(legacy)
+}
+
+func missingHeldCapabilities(p processCapabilities, required []string) []string {
+	var missing []string
+	for _, name := range required {
+		if n, ok := resolve(p, name); !ok || p.effective&(1<<uint(n)) == 0 {
+			missing = append(missing, name)
+		}
+	}
+	return missing
+}
 
 func missingCapabilities(p processCapabilities, required []string) []string {
 	holds := func(n int) bool { return p.permitted&(1<<uint(n)) != 0 }

@@ -11,5 +11,8 @@ func RaiseCapabilities() error { return nil }
 // MissingCapabilities reports nothing missing outside Linux, where capabilities do not exist.
 func MissingCapabilities(...string) []string { return nil }
 
+// MissingHeldCapabilities reports nothing missing outside Linux, where capabilities do not exist.
+func MissingHeldCapabilities(...string) []string { return nil }
+
 // LogMissingCapabilities is a no-op outside Linux.
 func LogMissingCapabilities(...string) {}
