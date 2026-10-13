@@ -39,6 +39,8 @@ jobs:
             bertschneider)   echo "token_name=CLAUDE_CODE_TOKEN_ANTOINE" >> "$GITHUB_OUTPUT" ;;
             ManuelGerding)   echo "token_name=CLAUDE_CODE_TOKEN_MANUEL" >> "$GITHUB_OUTPUT" ;;
             achoimet)        echo "token_name=CLAUDE_CODE_TOKEN_ANTOINE" >> "$GITHUB_OUTPUT" ;;
+            DuarteMCSilva)   echo "token_name=CLAUDE_CODE_TOKEN_DUARTE"  >> "$GITHUB_OUTPUT" ;;
+            maria-eltsova)   echo "token_name=CLAUDE_CODE_TOKEN_MARIA"  >> "$GITHUB_OUTPUT" ;;
             *)
               echo "::error::No Claude token configured for user '${{ github.event.pull_request.user.login }}'"
               exit 1
