@@ -20,7 +20,6 @@ var capabilityNames = []string{
 }
 
 func capabilityNumber(name string) (int, bool) {
-	name = strings.TrimPrefix(strings.ToUpper(name), "CAP_")
 	for i, n := range capabilityNames {
 		if n == name {
 			return i, true

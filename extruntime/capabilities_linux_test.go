@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 // process builds the capabilities of a process holding the named permitted capabilities, with the
@@ -101,4 +102,16 @@ func TestMissingCapabilities_UnknownNames(t *testing.T) {
 	p := process(fileCaps, containerCaps, 41, false)
 
 	assert.Equal(t, []string{"NOT_A_CAPABILITY"}, missingCapabilities(p, []string{"NOT_A_CAPABILITY"}))
+}
+
+func TestCapabilityNames_MatchTheKernelNumbering(t *testing.T) {
+	assert.Len(t, capabilityNames, unix.CAP_LAST_CAP+1)
+	for name, want := range map[string]int{
+		"CHOWN": unix.CAP_CHOWN, "NET_ADMIN": unix.CAP_NET_ADMIN, "SYS_ADMIN": unix.CAP_SYS_ADMIN,
+		"AUDIT_READ": unix.CAP_AUDIT_READ, "PERFMON": unix.CAP_PERFMON, "BPF": unix.CAP_BPF,
+		"CHECKPOINT_RESTORE": unix.CAP_CHECKPOINT_RESTORE,
+	} {
+		got, _ := capabilityNumber(name)
+		assert.Equal(t, want, got, name)
+	}
 }

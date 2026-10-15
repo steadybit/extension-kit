@@ -8,7 +8,6 @@ package extruntime
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"syscall"
 	"unsafe"
 
@@ -51,8 +50,9 @@ func RaiseCapabilities() error {
 	return fmt.Errorf("raising the capabilities: %w", errno)
 }
 
-// MissingCapabilities returns the capabilities among required that the extension cannot use,
-// named like the input. A capability is usable when it is in the bounding set, which the
+// MissingCapabilities returns the capabilities among required that the extension cannot use.
+// Capabilities are named as in Kubernetes securityContexts (SYS_ADMIN, not CAP_SYS_ADMIN); an
+// unknown name is reported as missing. A capability is usable when it is in the bounding set, which the
 // container's securityContext decides, and either:
 //   - the extension holds it (permitted set, from its file capabilities), or
 //   - the extension can run root helpers (runc, nsenter, tc, …) that get it: it holds SETUID and
@@ -67,7 +67,7 @@ func MissingCapabilities(required ...string) []string {
 }
 
 // MissingHeldCapabilities returns the capabilities among required that the extension does not hold
-// in its effective set, named like the input. Use it for what the extension does itself, like a
+// in its effective set, named as in MissingCapabilities. Use it for what the extension does itself, like a
 // syscall or writing a file, which the root helpers cannot do for it. It also reports what
 // RaiseCapabilities could not raise. Newer capabilities fall back to SYS_ADMIN as in
 // MissingCapabilities.
@@ -101,9 +101,8 @@ func currentProcess() processCapabilities {
 		p.permitted = uint64(data[0].Permitted) | uint64(data[1].Permitted)<<32
 		p.effective = uint64(data[0].Effective) | uint64(data[1].Effective)<<32
 	}
-	if nnp, err := unix.PrctlRetInt(unix.PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0); err != nil || nnp == 1 {
-		p.noNewPrivs = true
-	}
+	nnp, _ := unix.PrctlRetInt(unix.PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0)
+	p.noNewPrivs = nnp == 1
 	return p
 }
 
@@ -120,7 +119,7 @@ func resolve(p processCapabilities, name string) (n int, ok bool) {
 	if _, known := p.inBounding(n); known {
 		return n, true
 	}
-	legacy, ok := legacyCapabilities[strings.TrimPrefix(strings.ToUpper(name), "CAP_")]
+	legacy, ok := legacyCapabilities[name]
 	if !ok {
 		return 0, false
 	}
@@ -145,22 +144,12 @@ func missingCapabilities(p processCapabilities, required []string) []string {
 
 	var missing []string
 	for _, name := range required {
-		n, ok := capabilityNumber(name)
+		n, ok := resolve(p, name)
 		if !ok {
 			missing = append(missing, name)
 			continue
 		}
-		in, known := p.inBounding(n)
-		if !known {
-			legacy, ok := legacyCapabilities[strings.TrimPrefix(strings.ToUpper(name), "CAP_")]
-			if !ok {
-				missing = append(missing, name)
-				continue
-			}
-			n, _ = capabilityNumber(legacy)
-			in, known = p.inBounding(n)
-		}
-		if !known || !in || !(holds(n) || canRunRootHelpers) {
+		if in, _ := p.inBounding(n); !in || !(holds(n) || canRunRootHelpers) {
 			missing = append(missing, name)
 		}
 	}

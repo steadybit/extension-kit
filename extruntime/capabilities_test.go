@@ -11,13 +11,15 @@ import (
 )
 
 func TestCapabilityNumber(t *testing.T) {
-	for name, want := range map[string]int{"CHOWN": 0, "NET_ADMIN": 12, "cap_sys_admin": 21, "BPF": 39, "CHECKPOINT_RESTORE": 40} {
+	for name, want := range map[string]int{"CHOWN": 0, "NET_ADMIN": 12, "SYS_ADMIN": 21, "BPF": 39, "CHECKPOINT_RESTORE": 40} {
 		got, ok := capabilityNumber(name)
 		assert.True(t, ok, name)
 		assert.Equal(t, want, got, name)
 	}
-	_, ok := capabilityNumber("NOT_A_CAPABILITY")
-	assert.False(t, ok)
+	for _, name := range []string{"NOT_A_CAPABILITY", "CAP_SYS_ADMIN", "sys_admin"} {
+		_, ok := capabilityNumber(name)
+		assert.False(t, ok, name)
+	}
 }
 
 func TestMissingCapabilities_ReportsUnknownNames(t *testing.T) {
