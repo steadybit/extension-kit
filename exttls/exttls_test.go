@@ -89,3 +89,19 @@ func TestIsInsecureSkipVerify_parses_leniently(t *testing.T) {
 		assert.Equal(t, expected, IsInsecureSkipVerify(), "value %q", value)
 	}
 }
+
+type wrappingRoundTripper struct{ http.RoundTripper }
+
+func TestTransport_falls_back_when_default_transport_is_wrapped(t *testing.T) {
+	t.Setenv("STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY", "true")
+	original := http.DefaultTransport
+	http.DefaultTransport = wrappingRoundTripper{original}
+	t.Cleanup(func() { http.DefaultTransport = original })
+	server := newSelfSignedServer(t)
+
+	transport := Transport()
+
+	assert.True(t, transport.TLSClientConfig.InsecureSkipVerify)
+	assert.NotNil(t, transport.Proxy)
+	assert.NoError(t, get(server.URL))
+}
