@@ -4,6 +4,7 @@
 package exttls
 
 import (
+	"crypto/tls"
 	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,7 +72,13 @@ func TestClientConfig_trusts_ca_from_ssl_cert_file(t *testing.T) {
 	require.NoError(t, os.WriteFile(caFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0o600))
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestHelperGet$")
-	cmd.Env = append(os.Environ(), "EXTTLS_HELPER_URL="+server.URL, "SSL_CERT_FILE="+caFile, "STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY=false")
+	var env []string
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, "SSL_CERT_DIR=") && !strings.HasPrefix(e, "SSL_CERT_FILE=") {
+			env = append(env, e)
+		}
+	}
+	cmd.Env = append(env, "EXTTLS_HELPER_URL="+server.URL, "SSL_CERT_FILE="+caFile, "STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY=false")
 	out, err := cmd.CombinedOutput()
 	assert.NoError(t, err, string(out))
 }
@@ -103,5 +111,20 @@ func TestTransport_falls_back_when_default_transport_is_wrapped(t *testing.T) {
 
 	assert.True(t, transport.TLSClientConfig.InsecureSkipVerify)
 	assert.NotNil(t, transport.Proxy)
+	assert.NotNil(t, transport.DialContext, "the fallback must keep the standard dial timeout")
 	assert.NoError(t, get(server.URL))
+}
+
+func TestTransport_keeps_tls_settings_of_default_transport(t *testing.T) {
+	t.Setenv("STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY", "true")
+	defaultTransport := http.DefaultTransport.(*http.Transport)
+	original := defaultTransport.TLSClientConfig
+	defaultTransport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS13}
+	t.Cleanup(func() { defaultTransport.TLSClientConfig = original })
+
+	transport := Transport()
+
+	assert.Equal(t, uint16(tls.VersionTLS13), transport.TLSClientConfig.MinVersion)
+	assert.True(t, transport.TLSClientConfig.InsecureSkipVerify)
+	assert.False(t, defaultTransport.TLSClientConfig.InsecureSkipVerify, "the default transport must not be modified")
 }

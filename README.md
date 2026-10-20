@@ -32,7 +32,7 @@ The following environment variables are supported:
 | `STEADYBIT_LOG_LEVEL`                 | Defines the active log level. Possible values are `debug`, `info`, `warn` and `error`.                                                                                                     | `logging.level`                                                          | info    |
 | `STEADYBIT_LOG_COLOR`                 | Defines colorization of log output. Possible values are `true`, `false` and unset. If unset will use color only if stderr is a terminal.                                                   | `extraEnv`                                                               |         |
 | `STEADYBIT_EXTENSION_ENABLE_PPROF`    | Enables the `/debug/pprof/` handlers for debugging                                                                                                                                         | `extraEnv`                                                               | false   |
-| `STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY` | Disables TLS certificate verification for connections to third-party services made through `exttls`. See [Connecting to services with self-signed certificates](#connecting-to-services-with-self-signed-certificates). | `extraEnv` or the extension's dedicated value | false |
+| `STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY` | Disables TLS certificate verification for connections to third-party services made through `exttls`. See [Connecting to services with self-signed certificates](#connecting-to-services-with-self-signed-certificates). | `extraEnv`, or the chart value of the extension if it has one | false |
 
 ## Connecting to services with self-signed certificates
 
