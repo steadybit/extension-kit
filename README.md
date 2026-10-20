@@ -32,6 +32,45 @@ The following environment variables are supported:
 | `STEADYBIT_LOG_LEVEL`                 | Defines the active log level. Possible values are `debug`, `info`, `warn` and `error`.                                                                                                     | `logging.level`                                                          | info    |
 | `STEADYBIT_LOG_COLOR`                 | Defines colorization of log output. Possible values are `true`, `false` and unset. If unset will use color only if stderr is a terminal.                                                   | `extraEnv`                                                               |         |
 | `STEADYBIT_EXTENSION_ENABLE_PPROF`    | Enables the `/debug/pprof/` handlers for debugging                                                                                                                                         | `extraEnv`                                                               | false   |
+| `STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY` | Disables TLS certificate verification for connections to third-party services made through `exttls`. See [Connecting to services with self-signed certificates](#connecting-to-services-with-self-signed-certificates). | `extraEnv`, or the chart value of the extension if it has one | false |
+
+## Connecting to services with self-signed certificates
+
+Extensions that talk to a third-party service which may be self-hosted (Grafana, Prometheus, Kong, ...) should
+support the same two options, so operators can configure every extension the same way:
+
+1. **Trust a custom CA** (recommended): mount the CA certificates into the container and point `SSL_CERT_DIR` at
+   them. Go reads `SSL_CERT_DIR`/`SSL_CERT_FILE` when loading the system certificate pool, so this works as long as
+   the extension does not replace that pool (`RootCAs` left `nil`). `SSL_CERT_DIR` replaces the default directories,
+   so keep `/etc/ssl/certs` in the list.
+
+   ```yaml
+   extraVolumeMounts:
+     - name: extra-certs
+       mountPath: /etc/ssl/extra-certs
+       readOnly: true
+   extraVolumes:
+     - name: extra-certs
+       configMap:
+         name: self-signed-ca
+   extraEnv:
+     - name: SSL_CERT_DIR
+       value: /etc/ssl/extra-certs:/etc/ssl/certs
+   ```
+
+2. **Skip verification**: set `STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY=true`. Suitable for testing only.
+
+Use `exttls` for the clients that reach the service to get both:
+
+```go
+import "github.com/steadybit/extension-kit/exttls"
+
+client := resty.New().SetTransport(exttls.Transport())
+// or
+httpClient := &http.Client{Transport: exttls.Transport()}
+// or, when only a *tls.Config can be passed
+tlsConfig := exttls.ClientConfig()
+```
 
 ## OpenTelemetry Tracing
 
