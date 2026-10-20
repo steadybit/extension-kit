@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.12.2
+
+- feat: new `exttls` package gives extensions one consistent way to reach third-party services that may be self-hosted behind self-signed certificates. `exttls.ClientConfig()` returns a `*tls.Config` and `exttls.Transport()` an `*http.Transport` (a clone of the default transport, keeping its dial and handshake timeouts) that honour `STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY=true` to skip certificate verification; `RootCAs` is left `nil`, so a custom CA mounted into the container and referenced via `SSL_CERT_DIR`/`SSL_CERT_FILE` is trusted through the system pool. An empty or invalid value keeps verification on rather than failing startup; disabling verification logs a warning once per process. See the README section "Connecting to services with self-signed certificates".
+- chore(deps): `github.com/klauspost/compress` 1.20.0 → 1.20.3, `github.com/madflojo/testcerts` 1.5.0 → 1.5.1, `go.opentelemetry.io/otel/*` 1.46.0 → 1.47.0, `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp` 0.71.0 → 0.72.0, `go.opentelemetry.io/proto/otlp` 1.11.0 → 1.11.1, `golang.org/x/sys` 0.48.0 → 0.49.0
+
 ## 1.12.1
 
 - **Behaviour change** — `extotel` now defaults the OTLP protocol to `grpc` instead of the specification's `http/protobuf`. Every Steadybit deployment points at an OTLP/gRPC endpoint on port 4317 and the agent's own SDK defaults to gRPC, so an extension configured the way the agent is configured used to POST to a gRPC port and export nothing, silently. An endpoint copied from the agent now works as written; `http/protobuf` (port 4318) remains available by setting `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` explicitly.
