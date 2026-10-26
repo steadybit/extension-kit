@@ -26,7 +26,7 @@ on:
       force_release:
         type: boolean
         default: false
-        description: If true, release even when the commit range contains unsafe commits — intended for manual recovery runs
+        description: If true, release even when the commit range contains unsafe commits or no releasable commits at all — intended for manual recovery runs
       release_type:
         type: string
         default: patch
@@ -110,7 +110,7 @@ jobs:
           # One git invocation for all commit metadata; fields separated by ASCII US (0x1f)
           # which cannot appear in commit subjects, so subject is captured verbatim.
           commit_log=$(git log --no-merges --format='%H%x1f%ae%x1f%an%x1f%s' "${LATEST_TAG}..HEAD" || true)
-          if [ -z "$commit_log" ]; then
+          if [ -z "$commit_log" ] && [ "$FORCE_RELEASE" != "true" ]; then
             echo "outcome=no-commits" >> "$GITHUB_OUTPUT"
             echo "commit_count=0" >> "$GITHUB_OUTPUT"
             echo "No non-merge commits since ${LATEST_TAG}"
@@ -173,28 +173,31 @@ jobs:
             [ "$assessment" != "ignored" ] && release_subjects+="${subject}"$'\n'
           done <<< "$commit_log"
 
-          # Compose the CHANGELOG bullets from non-ignored subjects (used iff we end up releasing).
-          if [ -n "$release_subjects" ]; then
-            bullets=$(printf '%s' "$release_subjects" | sed '/^$/d' | sort -u | sed 's/^/- /')
-            [ -z "$bullets" ] && bullets="- Maintenance release"
-            {
-              echo 'changelog<<CHANGELOG_EOF'
-              echo "$bullets"
-              echo 'CHANGELOG_EOF'
-            } >> "$GITHUB_OUTPUT"
-          fi
+          # Compose the CHANGELOG bullets from non-ignored subjects (used iff we end up releasing). The fallback bullet
+          # covers forced releases without releasable commits, e.g. to rebuild with a newer Go toolchain.
+          bullets=$(printf '%s' "$release_subjects" | sed '/^$/d' | sort -u | sed 's/^/- /')
+          [ -z "$bullets" ] && bullets="- Maintenance release"
+          {
+            echo 'changelog<<CHANGELOG_EOF'
+            echo "$bullets"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
 
           echo "commit_count=$count" >> "$GITHUB_OUTPUT"
           safe_count=$((count - unsafe_count))
 
-          if [ "$count" -eq 0 ]; then
-            outcome=no-commits
-            echo "outcome=no-commits" >> "$GITHUB_OUTPUT"
-            echo "No releasable commits since ${LATEST_TAG} (${ignored} ignored)"
-          elif [ "$FORCE_RELEASE" = "true" ] && [ -n "$unsafe_sha" ]; then
+          if [ "$FORCE_RELEASE" = "true" ] && [ -n "$unsafe_sha" ]; then
             outcome=safe-forced
             echo "FORCE_RELEASE: overriding ${count} commit(s) (first unsafe ${unsafe_sha}) to outcome=safe"
             echo "outcome=safe" >> "$GITHUB_OUTPUT"
+          elif [ "$FORCE_RELEASE" = "true" ] && [ "$count" -eq 0 ]; then
+            outcome=safe-forced
+            echo "FORCE_RELEASE: releasing without releasable commits since ${LATEST_TAG} (${ignored} ignored) as outcome=safe"
+            echo "outcome=safe" >> "$GITHUB_OUTPUT"
+          elif [ "$count" -eq 0 ]; then
+            outcome=no-commits
+            echo "outcome=no-commits" >> "$GITHUB_OUTPUT"
+            echo "No releasable commits since ${LATEST_TAG} (${ignored} ignored)"
           elif [ -n "$unsafe_sha" ]; then
             outcome=skip-unsafe
             echo "outcome=skip-unsafe" >> "$GITHUB_OUTPUT"
@@ -206,7 +209,13 @@ jobs:
 
           {
             case "$outcome" in
-              safe-forced) echo "## :warning: Force-release — bypassing ${unsafe_count} blocking commit(s) since \`${LATEST_TAG}\`" ;;
+              safe-forced)
+                if [ "$count" -eq 0 ]; then
+                  echo "## :warning: Force-release — no releasable commits since \`${LATEST_TAG}\`"
+                else
+                  echo "## :warning: Force-release — bypassing ${unsafe_count} blocking commit(s) since \`${LATEST_TAG}\`"
+                fi
+                ;;
               skip-unsafe) echo "## :no_entry_sign: Release skipped — ${unsafe_count} blocking commit(s) since \`${LATEST_TAG}\`" ;;
               safe)        echo "## :rocket: Auto-release — ${count} commit(s) since \`${LATEST_TAG}\`" ;;
               no-commits)  echo "## :zzz: No releasable commits — ${ignored} ignored since \`${LATEST_TAG}\`" ;;
