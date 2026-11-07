@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.3
+
+- chore(deps): `golang.org/x/net` 0.59.0 → 0.62.0 (CVE-2026-78661 in `x/net/html`; x/net is indirect in the extensions, so this raises their minimum with the next extension-kit bump), `golang.org/x/text` 0.42.0 → 0.43.0
+
 ## 1.12.2
 
 - feat: new `exttls` package gives extensions one consistent way to reach third-party services that may be self-hosted behind self-signed certificates. `exttls.ClientConfig()` returns a `*tls.Config` and `exttls.Transport()` an `*http.Transport` (a clone of the default transport, keeping its dial and handshake timeouts) that honour `STEADYBIT_EXTENSION_INSECURE_SKIP_VERIFY=true` to skip certificate verification; `RootCAs` is left `nil`, so a custom CA mounted into the container and referenced via `SSL_CERT_DIR`/`SSL_CERT_FILE` is trusted through the system pool. An empty or invalid value keeps verification on rather than failing startup; disabling verification logs a warning once per process. See the README section "Connecting to services with self-signed certificates".
