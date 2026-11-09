@@ -445,7 +445,7 @@ jobs:
 
       # this commit will effectively cause another run of the workflow which then actually performs the helm chart release
       - run: |
-          npm install -g --ignore-scripts npm@12.0.2
+          npm install -g --ignore-scripts npm@12.2.2
           npm install --ignore-scripts -g semver@7.8.1
           make chart-bump-version APP_VERSION="${{ needs.build-images.outputs.version }}"
           git config user.name "$GITHUB_ACTOR"
