@@ -21,6 +21,14 @@ on:
         type: string
         default: test
         description: Command to run
+      # Keep the default in sync with go_version in reusable-extension-ci.yml: Snyk takes the stdlib version of the
+      # Go scan from this toolchain, so any other version reports stdlib vulnerabilities the binaries don't have, or
+      # misses the ones they do.
+      go_version:
+        type: string
+        required: false
+        default: '1.26'
+        description: Go version the extension is built with (go_version of reusable-extension-ci.yml)
     secrets:
       SNYK_TOKEN:
         required: false
@@ -34,28 +42,34 @@ jobs:
     env:
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
       container_image: ${{ inputs.container_image || format('ghcr.io/{0}:{1}', github.repository, github.ref_name) }}
+      snyk_command: ${{ inputs.command }}
+      severity_threshold: ${{ inputs.severity_threshold }}
+      target_ref: ${{ inputs.target_ref || github.ref_name }}
     steps:
       - name: Checkout repository
         if: ${{ env.snyk_available == 'true' }}
         uses: actions/checkout@v7
 
+      - uses: actions/setup-go@v7
+        if: ${{ env.snyk_available == 'true' }}
+        with:
+          go-version: ${{ inputs.go_version }}
+          check-latest: true
+
+      - name: Set up Snyk CLI
+        if: ${{ env.snyk_available == 'true' }}
+        uses: steadybit/extension-kit/.github/actions/setup-snyk@main # NOSONAR githubactions:S7637 - our own action
+
       - name: Snyk ${{ inputs.command }}
         if: ${{ env.snyk_available == 'true' }}
         continue-on-error: true
-        uses: snyk/actions/golang@master # NOSONAR githubactions:S7637 - verified action creator
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=${{ inputs.severity_threshold }} --project-name=${{ github.repository }} --target-reference=${{ inputs.target_ref || github.ref_name }}
-          command: ${{ inputs.command }}
+        run: snyk "$snyk_command" --severity-threshold="$severity_threshold" --project-name="$GITHUB_REPOSITORY" --target-reference="$target_ref"
 
       - name: Snyk ${{ inputs.command }} docker image ${{ env.container_image }}
         if: ${{ env.snyk_available == 'true' }}
         continue-on-error: true
-        uses: snyk/actions/docker@master # NOSONAR githubactions:S7637 - verified action creator
-        with:
-          image: ${{ env.container_image }}
-          args: --file=Dockerfile --severity-threshold=${{ inputs.severity_threshold }} --project-name=${{ github.repository }} --target-reference=${{ inputs.target_ref || github.ref_name }}
-          command: ${{ inputs.command }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk container "$snyk_command" "$container_image" --file=Dockerfile --severity-threshold="$severity_threshold" --project-name="$GITHUB_REPOSITORY" --target-reference="$target_ref"

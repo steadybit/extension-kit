@@ -1,0 +1,51 @@
+name: Set up Snyk CLI
+description: Installs the Snyk CLI binary for the runner's OS and architecture, verified against Snyk's GPG-signed checksums.
+inputs:
+  version:
+    description: Snyk CLI version, without the leading v
+    required: false
+    default: 1.1308.4
+runs:
+  using: composite
+  steps:
+    - name: Install Snyk CLI ${{ inputs.version }}
+      shell: bash
+      env:
+        SNYK_VERSION: ${{ inputs.version }}
+      # snyk/actions/setup always installs the x64 Linux binary and refuses Windows runners, and the
+      # snyk/actions/<language> Docker actions scan with the image's toolchain instead of the one set up in the job.
+      run: |
+        set -euo pipefail
+        case "$RUNNER_OS/$RUNNER_ARCH" in
+          Linux/X64)   bin=snyk-linux ;;
+          Linux/ARM64) bin=snyk-linux-arm64 ;;
+          macOS/X64)   bin=snyk-macos ;;
+          macOS/ARM64) bin=snyk-macos-arm64 ;;
+          Windows/X64) bin=snyk-win.exe ;;
+          *) echo "::error::Snyk publishes no CLI binary for $RUNNER_OS/$RUNNER_ARCH"; exit 1 ;;
+        esac
+        if [ -f /etc/alpine-release ]; then bin="${bin/linux/alpine}"; fi
+
+        dir="$RUNNER_TEMP/snyk-cli"
+        mkdir -p "$dir"
+        cd "$dir"
+        url="https://downloads.snyk.io/cli/v${SNYK_VERSION}"
+        curl -fsSL --retry 5 --retry-all-errors -o "$bin" "$url/$bin"
+        curl -fsSL --retry 5 --retry-all-errors -o sha256sums.txt.asc "$url/sha256sums.txt.asc"
+
+        # snyk-code-signing-public.pgp is Snyk's code-signing key 467717A30B2B4658415975629691DA64D0025194, copied from
+        # https://github.com/snyk/cli/blob/master/help/_about-this-project/snyk-code-signing-public.pgp. gpg still accepts
+        # signatures made before the key expires (2027-01-06); a release signed with a new key fails with NO_PUBKEY
+        # until the file is updated.
+        export GNUPGHOME="$(mktemp -d)"
+        gpg --batch --quiet --import "$GITHUB_ACTION_PATH/snyk-code-signing-public.pgp"
+        gpg --batch --yes --output sha256sums.txt --decrypt sha256sums.txt.asc
+        awk -v bin="$bin" '$2 == bin' sha256sums.txt > "$bin.sha256"
+        if command -v sha256sum >/dev/null; then sha256sum -c "$bin.sha256"; else shasum -a 256 -c "$bin.sha256"; fi
+
+        target=snyk
+        if [ "$RUNNER_OS" = Windows ]; then target=snyk.exe; fi
+        mv "$bin" "$target"
+        chmod +x "$target"
+        echo "$dir" >> "$GITHUB_PATH"
+        "./$target" --version
