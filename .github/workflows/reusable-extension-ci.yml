@@ -23,6 +23,7 @@ on:
         type: boolean
         required: false
         default: false
+      # Keep the default in sync with go_version in reusable-snyk-scan.yml, which scans with the same toolchain.
       go_version:
         type: string
         required: false
@@ -137,20 +138,16 @@ jobs:
           go mod download
           make audit
 
+      - name: "[release] Set up Snyk CLI"
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
+        uses: steadybit/extension-kit/.github/actions/setup-snyk@main # NOSONAR githubactions:S7637 - our own action
+
       - name: "[release] Snyk test"
-        # Install the CLI via npm rather than the snyk/actions/golang Docker action: that action's image
-        # (snyk/snyk:golang) is amd64-only and is pre-pulled at job init, which breaks this job on ARM runners.
-        # npm resolves the correct native binary per architecture, so this works on both amd64 and arm64.
         if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        # Version pinned for reproducibility (this runs at release time, so avoid a surprise major bump).
-        # Note: --ignore-scripts satisfies Sonar and npm 12 script blocking; snyk then lazily downloads
-        # its CLI binary on first run instead of in a postinstall (verified working).
-        run: |
-          npm install -g --ignore-scripts npm@12.0.2
-          npm install -g --ignore-scripts snyk@1.1306.1
-          snyk test --org=${{ vars.SNYK_ORG_ID }} --severity-threshold=high --project-name=${{ github.repository }} --target-reference=${{ github.ref_name }}
+          SNYK_ORG_ID: ${{ vars.SNYK_ORG_ID }}
+        run: snyk test --org="$SNYK_ORG_ID" --severity-threshold=high --project-name="$GITHUB_REPOSITORY" --target-reference="$GITHUB_REF_NAME"
 
       - name: Download e2e coverage files
         uses: actions/download-artifact@v8
@@ -252,16 +249,18 @@ jobs:
             VERSION=${{ steps.compute_version.outputs.version }}
             REVISION=${{ github.sha }}
 
+      - name: "[release] Set up Snyk CLI"
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
+        uses: steadybit/extension-kit/.github/actions/setup-snyk@main # NOSONAR githubactions:S7637 - our own action
+
       - name: "[release] Snyk monitor docker image release candidate"
         # we need to run monitor before test to be able to ignore issues
         if: ${{ startsWith(github.ref, 'refs/tags/') && env.snyk_available == 'true' }}
-        uses: snyk/actions/docker@master # NOSONAR githubactions:S7637 - verified action creator
-        with:
-          image: ghcr.io/${{ github.repository }}:rc
-          args: --file=Dockerfile --severity-threshold=high --project-name=${{ github.repository }} --target-reference=release-candidate --username=${{ github.actor }} --password=${{ secrets.GITHUB_TOKEN }}
-          command: monitor
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_REGISTRY_USERNAME: ${{ github.actor }}
+          SNYK_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: snyk container monitor "ghcr.io/$GITHUB_REPOSITORY:rc" --file=Dockerfile --severity-threshold=high --project-name="$GITHUB_REPOSITORY" --target-reference=release-candidate
 
 # Temporary disabled - http://support.snyk.io/hc/requests/84906 - ignoring issues via ui is not working
 #      - name: "[release] Snyk test docker image release candidate"
@@ -308,6 +307,7 @@ jobs:
       command: monitor
       container_image: ghcr.io/${{ github.repository }}:latest
       target_ref: latest
+      go_version: ${{ inputs.go_version }}
     secrets:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
