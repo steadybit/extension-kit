@@ -30,8 +30,8 @@ runs:
         mkdir -p "$dir"
         cd "$dir"
         url="https://downloads.snyk.io/cli/v${SNYK_VERSION}"
-        curl -fsSL --retry 5 --retry-all-errors -o "$bin" "$url/$bin"
-        curl -fsSL --retry 5 --retry-all-errors -o sha256sums.txt.asc "$url/sha256sums.txt.asc"
+        curl -fsSL --proto =https --retry 5 --retry-all-errors -o "$bin" "$url/$bin"
+        curl -fsSL --proto =https --retry 5 --retry-all-errors -o sha256sums.txt.asc "$url/sha256sums.txt.asc"
 
         # snyk-code-signing-public.pgp is Snyk's code-signing key 467717A30B2B4658415975629691DA64D0025194, copied from
         # https://github.com/snyk/cli/blob/master/help/_about-this-project/snyk-code-signing-public.pgp. gpg still accepts
