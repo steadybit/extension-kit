@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.0
+
+- feat: configurable bind address for the extension and health HTTP servers via `STEADYBIT_EXTENSION_BIND_ADDRESS` (or `exthttp.SetDefaultBindAddress`). `localhost` binds to `127.0.0.1` and `::1`; otherwise an IP address is expected. Unset keeps binding to all interfaces.
+
 ## 1.12.3
 
 - chore(deps): `golang.org/x/net` 0.59.0 → 0.62.0 (CVE-2026-78661 in `x/net/html`; x/net is indirect in the extensions, so this raises their minimum with the next extension-kit bump), `golang.org/x/text` 0.42.0 → 0.43.0

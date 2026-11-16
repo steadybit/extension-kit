@@ -10,7 +10,6 @@ package exthealth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
 	"github.com/steadybit/extension-kit/exthttp"
@@ -61,6 +60,7 @@ func addReadinessProbe(registerFn func(string, http.Handler)) {
 }
 
 // StartProbes will start liveness and readiness probes.
+// The probes server binds to the same address as the extension HTTP server, see exthttp.BindAddress.
 func StartProbes(port int) {
 	extsignals.AddSignalHandler(extsignals.SignalHandler{
 		Handler: func(signal os.Signal) {
@@ -83,12 +83,17 @@ func StartProbes(port int) {
 		healthPort = spec.Port
 	}
 
+	listeners, err := exthttp.ListenTCP(exthttp.BindAddress(), healthPort)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("Failed to start probes server")
+	}
+
 	serverMux := http.NewServeMux()
 	addLivenessProbe(serverMux.Handle)
 	addReadinessProbe(serverMux.Handle)
 	// Assign the package-level server before starting the goroutine so StopProbes and the
 	// StopProbesHTTP signal handler never race the assignment (nor read a nil server).
-	server = &http.Server{Addr: fmt.Sprintf(":%d", healthPort), Handler: serverMux}
+	server = &http.Server{Handler: serverMux}
 
 	extsignals.AddSignalHandler(extsignals.SignalHandler{
 		Handler: func(signal os.Signal) {
@@ -104,8 +109,8 @@ func StartProbes(port int) {
 	})
 
 	go func() {
-		log.Info().Msgf("Starting probes server on port %d, ready: %t", healthPort, atomic.LoadInt32(&isReady) == 1)
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Info().Msgf("Starting probes server on %s, ready: %t", exthttp.ListenerAddresses(listeners), atomic.LoadInt32(&isReady) == 1)
+		if err := exthttp.ServeListeners(listeners, server.Serve); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msgf("Failed to start probes server")
 		}
 	}()
