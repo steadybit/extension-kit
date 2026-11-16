@@ -30,6 +30,7 @@ import (
 
 type ListenSpecification struct {
 	Port          int      `json:"port" split_words:"true" required:"false"`
+	BindAddress   string   `json:"bindAddress" split_words:"true" required:"false"`
 	UnixSocket    string   `json:"unixSocket" split_words:"true" required:"false"`
 	TlsServerCert string   `json:"tlsServerCert" split_words:"true" required:"false"`
 	TlsServerKey  string   `json:"tlsServerKey" split_words:"true" required:"false"`
@@ -143,13 +144,15 @@ func listen(opts ListenOpts) error {
 		port = spec.Port
 	}
 
+	bindAddress := spec.bindAddress()
+
 	var err error
 	if spec.UnixSocket != "" {
 		wrapper, err = prepareUnixSocketServer(spec.UnixSocket)
 	} else if spec.isTlsEnabled() {
-		wrapper, err = prepareHttpsServer(port, spec)
+		wrapper, err = prepareHttpsServer(bindAddress, port, spec)
 	} else {
-		wrapper, err = prepareHttpServer(port)
+		wrapper, err = prepareHttpServer(bindAddress, port)
 	}
 	if err != nil {
 		return err
@@ -222,8 +225,8 @@ func (fw *forwardToZeroLogWriter) Write(p []byte) (n int, err error) {
 	return len([]byte(trimmed)), nil
 }
 
-func prepareHttpServer(port int) (*httpServerWrapper, error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+func prepareHttpServer(bindAddress string, port int) (*httpServerWrapper, error) {
+	listeners, err := ListenTCP(bindAddress, port)
 	if err != nil {
 		return nil, err
 	}
@@ -232,10 +235,10 @@ func prepareHttpServer(port int) (*httpServerWrapper, error) {
 		ErrorLog: stdLog.New(&forwardToZeroLogWriter{}, "", 0),
 	}
 
-	log.Info().Msgf("Starting extension http server on port %d", port)
+	log.Info().Msgf("Starting extension http server on %s", ListenerAddresses(listeners))
 	return &httpServerWrapper{
 		serve: func() error {
-			return server.Serve(listener)
+			return ServeListeners(listeners, server.Serve)
 		},
 		server: server,
 	}, nil
@@ -269,7 +272,7 @@ func prepareUnixSocketServer(path string) (*httpServerWrapper, error) {
 	}, nil
 }
 
-func prepareHttpsServer(port int, spec ListenSpecification) (*httpServerWrapper, error) {
+func prepareHttpsServer(bindAddress string, port int, spec ListenSpecification) (*httpServerWrapper, error) {
 	certReloader := NewCertReloader(spec.TlsServerCert, spec.TlsServerKey)
 
 	if _, err := certReloader.GetCertificate(nil); err != nil {
@@ -287,7 +290,7 @@ func prepareHttpsServer(port int, spec ListenSpecification) (*httpServerWrapper,
 		ClientCAs:      clientCAs,
 	}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	listeners, err := ListenTCP(bindAddress, port)
 	if err != nil {
 		return nil, err
 	}
@@ -298,8 +301,10 @@ func prepareHttpsServer(port int, spec ListenSpecification) (*httpServerWrapper,
 	}
 	return &httpServerWrapper{
 		serve: func() error {
-			log.Info().Msgf("Starting extension https server on port %d (ClientAuth: %s)", port, spec.getClientAuthType())
-			return server.ServeTLS(listener, "", "")
+			log.Info().Msgf("Starting extension https server on %s (ClientAuth: %s)", ListenerAddresses(listeners), spec.getClientAuthType())
+			return ServeListeners(listeners, func(listener net.Listener) error {
+				return server.ServeTLS(listener, "", "")
+			})
 		},
 		server: server,
 	}, nil

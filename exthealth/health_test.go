@@ -39,6 +39,26 @@ func TestServeProbes(t *testing.T) {
 	require.Equal(t, http.StatusOK, res.StatusCode)
 }
 
+func TestServeProbesOnExtensionBindAddress(t *testing.T) {
+	port, err := freeport.GetFreePort()
+	require.NoError(t, err)
+
+	t.Setenv("STEADYBIT_EXTENSION_BIND_ADDRESS", "127.0.0.1")
+	StartProbes(port)
+	defer StopProbes()
+
+	res, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health/liveness", port))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	// Only 127.0.0.1 is bound, so the port is still free on ::1.
+	listener, err := net.Listen("tcp", fmt.Sprintf("[::1]:%d", port))
+	if err == nil {
+		_ = listener.Close()
+	}
+	require.NoError(t, err)
+}
+
 func TestServerProbesUsingUnixSocket(t *testing.T) {
 	sock := filepath.Join(t.TempDir(), "sock")
 
