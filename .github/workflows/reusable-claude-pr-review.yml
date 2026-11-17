@@ -26,7 +26,6 @@ jobs:
       contents: read
       pull-requests: write
       issues: read
-      id-token: write
       actions: read
 
     steps:
@@ -36,7 +35,6 @@ jobs:
           case "${{ github.event.pull_request.user.login }}" in
             ReuDa)           echo "token_name=CLAUDE_CODE_TOKEN_DANIEL" >> "$GITHUB_OUTPUT" ;;
             joshiste)        echo "token_name=CLAUDE_CODE_TOKEN_JOHANNES" >> "$GITHUB_OUTPUT" ;;
-            bertschneider)   echo "token_name=CLAUDE_CODE_TOKEN_ANTOINE" >> "$GITHUB_OUTPUT" ;;
             ManuelGerding)   echo "token_name=CLAUDE_CODE_TOKEN_MANUEL" >> "$GITHUB_OUTPUT" ;;
             achoimet)        echo "token_name=CLAUDE_CODE_TOKEN_ANTOINE" >> "$GITHUB_OUTPUT" ;;
             DuarteMCSilva)   echo "token_name=CLAUDE_CODE_TOKEN_DUARTE"  >> "$GITHUB_OUTPUT" ;;
@@ -57,6 +55,11 @@ jobs:
         uses: anthropics/claude-code-action@v1 # NOSONAR githubactions:S7637 - verified action creator
         with:
           claude_code_oauth_token: ${{ secrets[steps.resolve-token.outputs.token_name] }}
+          # The workflow token, limited by the permissions above (contents read, pull requests write).
+          # Without it the action swaps in a token of the Claude GitHub App, which can write to the
+          # repository. A review reads text anyone can post on a public pull request, so it must not
+          # hold a token that can change code.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           track_progress: true
           use_sticky_comment: true
           include_fix_links: false
@@ -90,8 +93,8 @@ jobs:
                  }' -F owner=<owner> -F repo=<repo> -F number=<number>
                ```
 
-            2. For each thread that is NOT resolved AND was authored by you (the
-               Claude bot account), inspect the referenced file/line at HEAD and
+            2. For each thread that is NOT resolved AND was authored by the review bot
+               (`github-actions[bot]`, or `claude[bot]` for older threads), inspect the referenced file/line at HEAD and
                determine whether the issue has been fixed.
 
             3. If the issue is fixed:
