@@ -163,9 +163,10 @@ jobs:
       # Secretless analysis: SonarQube Cloud exchanges the identity of this job for a token that is valid
       # for 30 minutes and for the project bound to this repository only. Pull requests from forks get no
       # identity, and a repository may not be bound yet: the stored SONAR_TOKEN stays as the fallback.
+      # Dependabot runs have neither, so the login is not attempted for them (no scan, as before).
       - name: SonarQube Cloud login
         id: sonar-auth
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        if: ${{ github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         continue-on-error: true
         uses: SonarSource/sonarqube-auth-action@b372e2c2930aadfcc4f4399446da1e12772709ad # v1.2 NOSONAR githubactions:S7637 - verified action creator
         with:
