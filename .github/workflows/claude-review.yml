@@ -10,5 +10,5 @@ concurrency:
 
 jobs:
   claude-review:
-    uses: steadybit/extension-kit/.github/workflows/reusable-claude-pr-review.yml@main
+    uses: steadybit/extension-kit/.github/workflows/reusable-claude-pr-review.yml@fix/claude-review-read-only-token
     secrets: inherit # NOSONAR
