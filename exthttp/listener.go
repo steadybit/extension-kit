@@ -146,17 +146,21 @@ func listen(opts ListenOpts) error {
 
 	bindAddress := spec.bindAddress()
 
+	// Serve through the local variable: wrapper is only accessed under
+	// serveCond.L, and StopListen may reset it before serve is called.
+	var w *httpServerWrapper
 	var err error
 	if spec.UnixSocket != "" {
-		wrapper, err = prepareUnixSocketServer(spec.UnixSocket)
+		w, err = prepareUnixSocketServer(spec.UnixSocket)
 	} else if spec.isTlsEnabled() {
-		wrapper, err = prepareHttpsServer(bindAddress, port, spec)
+		w, err = prepareHttpsServer(bindAddress, port, spec)
 	} else {
-		wrapper, err = prepareHttpServer(bindAddress, port)
+		w, err = prepareHttpServer(bindAddress, port)
 	}
 	if err != nil {
 		return err
 	}
+	wrapper = w
 
 	extsignals.AddSignalHandler(extsignals.SignalHandler{
 		Handler: func(signal os.Signal) {
@@ -164,14 +168,14 @@ func listen(opts ListenOpts) error {
 			defer func() {
 				cancel()
 			}()
-			if wrapper == nil || wrapper.server == nil {
+			w := takeWrapper()
+			if w == nil || w.server == nil {
 				return
 			}
 			log.Info().Msg("Stopping Extension HTTP Server")
-			if err := wrapper.server.Shutdown(ctx); err != nil {
+			if err := w.server.Shutdown(ctx); err != nil {
 				log.Warn().Msgf("Extension HTTP Server Shutdown Failed: %+v", err)
 			}
-			wrapper = nil
 		},
 		Order: extsignals.OrderStopExtensionHttp,
 		Name:  "StopExtensionHTTP",
@@ -181,7 +185,7 @@ func listen(opts ListenOpts) error {
 	serveCond.Broadcast()
 	serveCond.L.Unlock()
 	success = true
-	if err = wrapper.serve(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err = w.serve(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil
@@ -200,13 +204,22 @@ func StopListen() {
 	serving = false
 	serveCond.L.Unlock()
 
-	if wrapper == nil || wrapper.server == nil {
+	w := takeWrapper()
+	if w == nil || w.server == nil {
 		return
 	}
-	if err := wrapper.server.Close(); err != nil {
+	if err := w.server.Close(); err != nil {
 		log.Error().Err(err).Msgf("Failed to stop extension server")
 	}
+}
+
+// takeWrapper returns the current server wrapper and resets it, so that only one caller stops the server.
+func takeWrapper() *httpServerWrapper {
+	serveCond.L.Lock()
+	defer serveCond.L.Unlock()
+	w := wrapper
 	wrapper = nil
+	return w
 }
 
 type forwardToZeroLogWriter struct {

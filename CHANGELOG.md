@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.1
+
+- fix(exthttp): data race between `StopListen` (or the shutdown signal handler) and a server that is still starting. The global server wrapper was read and reset without holding a lock, so stopping the server before it began serving could also panic with a nil pointer dereference.
+
 ## 1.13.0
 
 - feat: configurable bind address for the extension and health HTTP servers via `STEADYBIT_EXTENSION_BIND_ADDRESS` (or `exthttp.SetDefaultBindAddress`). `localhost` binds to `127.0.0.1` and `::1`; otherwise an IP address is expected. Unset keeps binding to all interfaces.
