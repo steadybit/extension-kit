@@ -81,9 +81,6 @@ on:
         description: |
           pattern to download coverage artifacts
     secrets:
-      PAT_TOKEN_EXTENSION_DEPLOYER:
-        required: false
-        description: Optional token to trigger extension restarts
       MAVEN_GPG_PRIVATE_KEY:
         required: false
         description: GPG private key to sign packages, required if build_linux_packages is true
@@ -192,10 +189,8 @@ jobs:
       packages: write
     outputs:
       version: ${{ steps.meta.outputs.version }}
-      deployer_available: ${{ env.deployer_available }}
       version_bump_available: ${{ env.version_bump_available }}
     env:
-      deployer_available: ${{ secrets.PAT_TOKEN_EXTENSION_DEPLOYER  != '' && 'true' || 'false' }}
       version_bump_available: ${{ (inputs.VERSION_BUMPER_APPID != '' && secrets.VERSION_BUMPER_SECRET  != '') && 'true' || 'false' }}
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
     steps:
@@ -531,12 +526,11 @@ jobs:
 
   trigger-test-environment-updates:
     name: Trigger test environment updates
-    # Opt in with restart_test_environments. Passing PAT_TOKEN_EXTENSION_DEPLOYER still opts in until the
-    # callers have switched to the input; the personal token itself is no longer used.
+    # Opt in with restart_test_environments.
     if: >-
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
       && needs.build-images.outputs.version_bump_available == 'true'
-      && (inputs.restart_test_environments || needs.build-images.outputs.deployer_available == 'true')
+      && inputs.restart_test_environments
     needs: [build-images]
     runs-on: ubuntu-latest
     timeout-minutes: 60
