@@ -31,26 +31,20 @@ jobs:
           make audit
 
       # Secretless analysis: SonarQube Cloud exchanges the identity of this job for a token that is valid
-      # for 30 minutes and for the project bound to this repository only. The stored SONAR_TOKEN stays as
-      # the fallback for now.
+      # for 30 minutes and for the project bound to this repository only. No token is stored.
       - name: SonarQube Cloud login
         id: sonar-auth
         if: github.ref_name == 'main'
-        continue-on-error: true
         uses: SonarSource/sonarqube-auth-action@b372e2c2930aadfcc4f4399446da1e12772709ad # v1.2 NOSONAR githubactions:S7637 - verified action creator
         with:
           export-env: false
-
-      - name: Report a fallback to the stored Sonar token
-        if: ${{ steps.sonar-auth.outcome == 'failure' }}
-        run: echo "::warning::SonarQube Cloud login without a token failed, the scan uses the stored SONAR_TOKEN. See the login step."
 
       - name: SonarCloud Scan
         uses: sonarsource/sonarqube-scan-action@v8  # NOSONAR githubactions:S7637 - verified action creator
         if: github.ref_name == 'main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ steps.sonar-auth.outputs.sonar-token || secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ steps.sonar-auth.outputs.sonar-token }}
 
   # The generated query language parser is checked in, so it can go stale against the grammar it was
   # generated from. Regenerate and fail on a diff. (Whether the grammar itself still matches the

@@ -74,9 +74,6 @@ on:
         description: |
           pattern to download coverage artifacts
     secrets:
-      SONAR_TOKEN:
-        required: false
-        description: Optional SonarCloud token
       PAT_TOKEN_EXTENSION_DEPLOYER:
         required: false
         description: Optional token to trigger extension restarts
@@ -89,12 +86,6 @@ on:
       PAT_TOKEN_GORELEASER:
         required: false
         description: PAT Token, required if build_linux_packages is true
-      STEADYBIT_ARTIFACT_SERVER_USERNAME:
-        required: false
-        description: Username for artifact server, required if build_linux_packages is true
-      STEADYBIT_ARTIFACT_SERVER_PASSWORD:
-        required: false
-        description: Password for artifact server, required if build_linux_packages is true
       SNYK_TOKEN:
         required: false
         description: Optional snyk token
@@ -115,7 +106,6 @@ jobs:
       pull-requests: read
       id-token: write # SonarQube Cloud login without a stored token
     env:
-      sonar_available: ${{ secrets.SONAR_TOKEN  != '' && 'true' || 'false' }}
       snyk_available: ${{ secrets.SNYK_TOKEN  != '' && 'true' || 'false' }}
     steps:
       - name: Checkout repository
@@ -161,34 +151,29 @@ jobs:
           merge-multiple: true
 
       # Secretless analysis: SonarQube Cloud exchanges the identity of this job for a token that is valid
-      # for 30 minutes and for the project bound to this repository only. Pull requests from forks get no
-      # identity, and a repository may not be bound yet: the stored SONAR_TOKEN stays as the fallback.
-      # Dependabot runs have neither, so the login is not attempted for them (no scan, as before).
+      # for 30 minutes and for the project bound to this repository only. No token is stored. Pull requests
+      # from forks and Dependabot runs get no identity, so the scan is skipped for them. A repository that
+      # is not bound to its Sonar project fails at the login, which is where to look.
       - name: SonarQube Cloud login
         id: sonar-auth
         if: ${{ github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
-        continue-on-error: true
         uses: SonarSource/sonarqube-auth-action@b372e2c2930aadfcc4f4399446da1e12772709ad # v1.2 NOSONAR githubactions:S7637 - verified action creator
         with:
           export-env: false
 
-      - name: Report a fallback to the stored Sonar token
-        if: ${{ steps.sonar-auth.outcome == 'failure' && env.sonar_available == 'true' }}
-        run: echo "::warning::SonarQube Cloud login without a token failed, the scan uses the stored SONAR_TOKEN. See the login step."
-
       - name: SonarCloud Scan
-        if: ${{ steps.sonar-auth.outputs.sonar-token != '' || env.sonar_available == 'true' }}
+        if: ${{ steps.sonar-auth.outputs.sonar-token != '' }}
         uses: sonarsource/sonarqube-scan-action@v8  # NOSONAR githubactions:S7637 - verified action creator
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ steps.sonar-auth.outputs.sonar-token || secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ steps.sonar-auth.outputs.sonar-token }}
 
       - name: "[release] SonarCloud Quality Gate check"
-        if: ${{ startsWith(github.ref, 'refs/tags/') && (steps.sonar-auth.outputs.sonar-token != '' || env.sonar_available == 'true') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && steps.sonar-auth.outputs.sonar-token != '' }}
         uses: sonarsource/sonarqube-quality-gate-action@v1  # NOSONAR githubactions:S7637 - verified action creator
         timeout-minutes: 5
         env:
-          SONAR_TOKEN: ${{ steps.sonar-auth.outputs.sonar-token || secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ steps.sonar-auth.outputs.sonar-token }}
 
   build-images:
     name: Build Docker Images
