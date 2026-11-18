@@ -13,18 +13,22 @@ on:
         description: if true, no images will be deleted
     secrets:
       token:
-        required: true
-        description: GitHub PAT with repo permissions
+        required: false
+        description: No longer used. The job deletes with its own token; callers can stop passing this.
 
 jobs:
   ghcr-cleanup:
     name: Delete old container images
     runs-on: ubuntu-latest
+    # The package of a repository is pushed by that repository's own builds, which gives its workflow
+    # token admin access to it. No personal token is needed to delete old versions.
+    permissions:
+      packages: write
     steps:
       - name: Delete old non-release images
         uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
-          token: ${{ secrets.token }}
+          token: ${{ github.token }}
           owner: ${{ github.repository_owner }}
           package: ${{ github.event.repository.name }}
           dry-run: ${{ inputs.dry-run }}
@@ -40,7 +44,7 @@ jobs:
       - name: Delete all images older than 1 year
         uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
-          token: ${{ secrets.token }}
+          token: ${{ github.token }}
           owner: ${{ github.repository_owner }}
           package: ${{ github.event.repository.name }}
           dry-run: true # TODO: forced dry-run while validating the 1-year cleanup; revert to ${{ inputs.dry-run }} once confirmed
