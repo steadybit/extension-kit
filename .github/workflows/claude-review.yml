@@ -10,5 +10,6 @@ concurrency:
 
 jobs:
   claude-review:
-    uses: steadybit/extension-kit/.github/workflows/reusable-claude-pr-review.yml@main
+    # Local path, so that a pull request changing the shared workflow is reviewed with its own version.
+    uses: ./.github/workflows/reusable-claude-pr-review.yml
     secrets: inherit # NOSONAR
