@@ -50,6 +50,22 @@ jobs:
         with:
           fetch-depth: 1
 
+      # The review is posted by github-actions[bot] (see github_token below). claude-code-action only
+      # recognises its earlier comment when the author is the Claude GitHub App or a bot named
+      # "claude", so use_sticky_comment adds a new comment on every push. Remove the earlier ones
+      # here, so that a pull request keeps a single review summary.
+      - name: Remove earlier review summaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | test("^(\\*\\*Claude |Claude Code is working)"))) | .id' |
+          while read -r id; do
+            gh api -X DELETE "repos/$REPO/issues/comments/$id"
+          done
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1 # NOSONAR githubactions:S7637 - verified action creator
