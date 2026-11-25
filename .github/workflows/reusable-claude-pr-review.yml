@@ -20,7 +20,8 @@ on:
 
 jobs:
   claude-review:
-    if: github.actor != 'dependabot[bot]'
+    # Drafts are skipped; ready_for_review starts the first review.
+    if: github.actor != 'dependabot[bot]' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -135,7 +136,8 @@ jobs:
             Please review this pull request with a focus on:
             - Code quality and best practices
             - Potential bugs or issues
-            - Security implications
+            - Security implications: review against the "Security" section below, including what it says to report,
+              to skip and how to rate severity. Tag such comments `[security: high|medium|low]`.
             - Performance considerations
             - Race conditions or concurrency issues
             - Obvious typos that affect correctness
@@ -144,7 +146,8 @@ jobs:
             - Style, formatting, or naming preferences
             - Missing tests or documentation
             - Refactoring suggestions
-            - Things that were already present before this PR
+            - Things that were already present before this PR (except security issues the "Security" section says to
+              report as pre-existing)
             - Things that were already covered by a comment in this PR and are still unresolved. You may note it in the summary, but keep it short.
 
             Note: The PR branch is already checked out in the current working directory.
@@ -153,5 +156,71 @@ jobs:
             Use `mcp__github_inline_comment__create_inline_comment` to highlight specific code issues.
             Only post GitHub comments - don't submit review text as messages.
 
+            ## Security
+
+            Extensions run inside the customer's infrastructure, often as root, in host namespaces or with
+            cluster-wide RBAC, and hold credentials for the systems they integrate with. Report only findings with a
+            concrete attack path, with severity, exploit scenario and fix.
+
+            Who controls what:
+            - The operator (Helm values, environment variables, config files) is trusted. An attack that needs
+              operator configuration is not a finding.
+            - The agent, as the caller of the extension's HTTP API, is trusted to command the extension. The API has
+              no authentication unless the operator configures mTLS (`STEADYBIT_EXTENSION_TLS_CLIENT_CAS`); reaching
+              the port is the boundary, by design. Don't report the missing authentication, but do report a change
+              that widens who can reach the API or what an endpoint reveals.
+            - Action parameters and uploaded files are typed by platform users, whose permissions end at their
+              environments. They are untrusted input: an action must not let them run arbitrary commands or reach
+              beyond the target in the request.
+            - Everything read from monitored systems (cloud and Kubernetes APIs, labels, container and process names,
+              observability APIs, HTTP responses) is untrusted data, and so are the target attributes built from it.
+
+            Report:
+            - a request or discovered value reaching a shell (`sh -c`, a command line built as a string), or used
+              unvalidated as an argument of a host tool (iptables, tc, nsenter, kill, ...) where it can inject
+              options, commands or rules;
+            - an action that affects more than the target in the request: a selector that matches everything when a
+              value is empty, a fallback to a broader scope, a resource the target attributes don't name;
+            - a credential (cloud keys, API tokens, passwords, kubeconfigs) reaching anything but its own service.
+              Logs, discovery attributes, action messages, errors, metrics and artifacts all reach the platform,
+              where tenant users see them;
+            - TLS verification to a third-party API disabled without an operator setting that asks for it;
+            - a file name or path from a request that can escape the directory meant for it; a secret written to a
+              file other users can read;
+            - new privileges (capabilities, privileged mode, host namespaces or paths, RBAC verbs or resources) in a
+              Dockerfile, chart or manifest that the change does not need;
+            - a workflow change that runs untrusted PR content with secrets: `pull_request_target` with a PR checkout,
+              or a free-text event field (title, body, `head.ref`, labels, comment bodies) interpolated into `run:`.
+              Logins, numbers and SHAs are safe. These repositories are public, so anyone can open a pull request;
+            - a pre-existing weakness from this list that the change touches or makes reachable, marked as
+              pre-existing.
+
+            Don't report: attacks needing operator, host-admin or cluster-admin access; what an action does to its
+            target on purpose (killing processes, filling disks, dropping traffic, running an uploaded load-test
+            script, calling the URL an HTTP check was given); missing hardening without an attack path; DoS and
+            resource exhaustion; outdated dependencies (Trivy and Dependabot cover them); theoretical races.
+
+            Severity:
+            - high: exposes a credential, lets a request run arbitrary commands, or makes an action hit something the
+              request does not name;
+            - medium: the same behind a realistic precondition, such as write access to the labels or names of a
+              discovered resource;
+            - low: defence in depth with a concrete gap and a small fix.
+
+            ## Large pull requests
+
+            A big diff may be split across subagents (the `Agent` tool is available and inherits your tool
+            allowlist). Run every subagent in the foreground and wait for its result: this is a one-shot run, so the
+            moment you end your turn the process exits and background agents are killed with their findings - never
+            end your turn with "waiting for agents". Post what you have found as soon as an area is done, and always
+            post a summary comment before you stop - a finished run with an empty checklist is indistinguishable from
+            a review that never happened. If a tool call is denied, do not retry it: continue with the tools you have
+            and say in the summary what you could not do.
+
+          # Agent: a large diff is reviewed as several subagent passes; without it the model retries the denied
+          # fan-out until it gives up and posts nothing (observed on a 264-file platform PR). Subagents inherit this
+          # allowlist. Read-only git: a reviewer looks at the diff per file and at history; `git fetch` because the
+          # checkout is fetch-depth 1 and the reviewer fetches origin/main to diff against it.
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api graphql:*),Bash(gh api repos/*)"
+            --model opus --effort high
+            --allowedTools "Agent,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api graphql:*),Bash(gh api repos/*),Bash(git fetch:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git status:*),Bash(git rev-parse:*),Bash(git merge-base:*)"
