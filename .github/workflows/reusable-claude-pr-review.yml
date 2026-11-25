@@ -143,10 +143,10 @@ jobs:
               report as pre-existing)
             - Things that were already covered by a comment in this PR and are still unresolved. You may note it in the summary, but keep it short.
 
-            Note: The PR branch is already checked out in the current working directory. HEAD is GitHub's merge commit
-            of the PR into the base branch. For the diff, use `gh pr diff`, or
-            `git show --diff-merges=first-parent HEAD -- <path>` for single files; `git diff` and `git blame` are not
-            available.
+            Note: The PR branch is already checked out in the current working directory (HEAD is the PR's head
+            commit, `origin/main` is the base). For the diff, use `gh pr diff`; for a single file, use
+            `git log -p origin/main..HEAD -- <path>` (each commit's changes) or compare `git show origin/main:<path>`
+            with `git show HEAD:<path>`. `git diff` and `git blame` are not available.
 
             Use `gh pr comment` for top-level feedback.
             Use `mcp__github_inline_comment__create_inline_comment` to highlight specific code issues.
